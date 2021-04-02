@@ -167,7 +167,7 @@ data:
 6. update DNS records
 
 ```shell
-##NTT
+##DNS
 172.16.30.35 barbican.mosk.local
 172.16.30.35 cinder.mosk.local
 172.16.30.35 cloudformation.mosk.local
