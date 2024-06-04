@@ -1,0 +1,93 @@
+# Welcome to Mirantis Container Cloud bootstrap templates.
+# This template allows you to configure the Kubernetes cluster
+# where the Container Cloud management plane resides, as well
+# as the management services of Container Cloud.
+apiVersion: cluster.k8s.io/v1alpha1
+kind: Cluster
+metadata:
+  name: kaas-mgmt
+# The label 'kaas.mirantis.com/provider' is mandatory.
+# Do not delete those labels.
+  labels:
+    kaas.mirantis.com/provider: baremetal
+spec:
+# The `clusterNetwork' parameters are applied to the internal
+# addressing of the Kubernetes cluster. Typically, you do not
+# need to change these parameters, unless your deployment has
+# such a requirement. You need to ensure these subnetworks
+# are not intersected with any other networks in your cluster.
+  clusterNetwork:
+    services:
+      cidrBlocks:
+        - 10.233.0.0/18
+    pods:
+      cidrBlocks:
+        - 10.233.64.0/18
+  providerSpec:
+# The 'value' field in the 'providerSpec' section contains the
+# configuration parameters for the Container Cloud bare metal
+# provider. Some of these parameters are mandatory. Replace the
+# capitalized strings with the values that match the
+# configuration of your environment.
+    value:
+      apiVersion: baremetal.k8s.io/v1alpha1
+      kind: BaremetalClusterProviderSpec
+      # The 'release' field in this section will be set automatically
+      # based on the data of the Container Cloud release you are going
+      # to install. Do not set this parameter manually.
+      # release:
+      #
+      # 'nodeCidr' parameter is not applied by the Container Cloud
+      # bare metal provider.
+      nodeCidr: 10.10.10.0/24
+      # The 'dnsNameservers' parameter is ignored by the Container Cloud
+      # bare metal provider.
+      dnsNameservers:
+        - 172.18.224.6
+      # The 'dedicatedControlPlane' parameter is set to 'false' for
+      # the management cluster to run certain workloads on the Kubernetes
+      # manager nodes. Typically, these workloads will run only on the
+      # worker nodes in the Kubernetes cluster. These workloads include
+      # Ceph and StackLight. Do not change this parameter.
+      dedicatedControlPlane: false
+      # When dedicatedMetallbPools is true, dedicated MetalLB address pools will be used for services in management cluster;
+      # "baremetal-operator" services and "mcc-cache" service will use dedicated MetalLB address pool associated with PXE network.
+      # To do so, baremetal provider sets "global.services.useMetallbPoolName" value to "true" for every MCC chart.
+      # Charts that support this feature will configure "metallb.universe.tf/address-pool" annotation for their Service objects.
+      # Starting from version MCC 2.25 this option is always enabled for newly created clusters
+      dedicatedMetallbPools: true
+      helmReleases:
+        - name: metallb
+          # configInline is deprecated. Remove configInline to configure MetalLB address advertisement parameters
+          # using MetalLBConfig and MetalLBConfigTemplate objects.
+          values: {}
+        - name: stacklight
+          values:
+            elasticsearch:
+              persistentVolumeClaimSize: 30Gi
+            highAvailabilityEnabled: true
+            logging:
+              enabled: true
+            prometheusServer:
+              persistentVolumeClaimSize: 16Gi
+      kaas:
+        # The 'release' field in this section will be set automatically
+        # based on the data of the Container Cloud release you are going
+        # to install. Do not set this parameter manually.
+        # release:
+        regional:
+        - provider: baremetal
+          helmReleases:
+          - name: baremetal-operator
+            values: {}
+          - name: baremetal-provider
+            values:
+            values:
+              config:
+                allInOneAllowed: false
+                customHostnamesEnabled: true
+                internalLoadBalancers: false
+          - name: kaas-ipam
+            values: {}
+        management:
+          enabled: true

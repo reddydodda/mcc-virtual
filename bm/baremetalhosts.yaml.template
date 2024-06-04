@@ -1,0 +1,113 @@
+---
+# Use the resources in this file to provide the credentials and addresses
+# that will allow the Container Cloud bootstrap procedure to access the
+# management interfaces of the bare metal servers. The Container Cloud bare
+# metal provisioning system uses IPMI protocol to power up and down the
+# servers and to configure boot mode.
+apiVersion: kaas.mirantis.com/v1alpha1
+kind: BareMetalHostCredential
+metadata:
+  name: master-0-bmc-credentials
+  namespace: default
+  labels:
+    kaas.mirantis.com/provider: baremetal
+spec:
+  username: root
+# NIT: raw password
+  password:
+    value: password
+---
+apiVersion: kaas.mirantis.com/v1alpha1
+kind: BareMetalHostCredential
+metadata:
+  name: master-1-bmc-credentials
+  namespace: default
+  labels:
+    kaas.mirantis.com/provider: baremetal
+spec:
+  username: root
+# NIT: raw password
+  password:
+    value: password
+---
+apiVersion: kaas.mirantis.com/v1alpha1
+kind: BareMetalHostCredential
+metadata:
+  name: master-2-bmc-credentials
+  namespace: default
+  labels:
+    kaas.mirantis.com/provider: baremetal
+spec:
+  username: root
+# NIT: raw password
+  password:
+    value: password
+---
+apiVersion: metal3.io/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: master-0
+  labels:
+    kaas.mirantis.com/provider: baremetal
+    baremetal: hw-master-0
+  annotations:
+    "kaas.mirantis.com/baremetalhost-credentials-name": "master-0-bmc-credentials"
+spec:
+  # 'bootMode' parameter defines the boot mode for the server.
+  # Supported values are 'UEFI' and 'legacy'.
+  bootMode: UEFI
+  online: true
+  # The MAC address of the PXE interface of the first server.
+  bootMACAddress: 52:54:00:c5:91:11
+  bmc:
+    # The IP address of the BMC endpoint for the first server.
+    # Verify that you can access this address from the host
+    # where you run the bootstrap script (seed node).
+    address: SET_KVM_ADDRESS
+    credentialsName: ''
+---
+apiVersion: metal3.io/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: master-1
+  labels:
+    kaas.mirantis.com/provider: baremetal
+    baremetal: hw-master-1
+  annotations:
+    "kaas.mirantis.com/baremetalhost-credentials-name": "master-1-bmc-credentials"
+spec:
+  # 'bootMode' parameter defines the boot mode for the server.
+  # Supported values are 'UEFI' and 'legacy'.
+  bootMode: UEFI
+  online: true
+  # The MAC address of the PXE interface of the second server.
+  bootMACAddress: 52:54:00:c5:91:22
+  bmc:
+    # The IP address of the BMC endpoint for the second server.
+    # Verify that you can access this address from the host
+    # where you run the bootstrap script (seed node).
+    address: SET_KVM_ADDRESS
+    credentialsName: ''
+---
+apiVersion: metal3.io/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: master-2
+  labels:
+    kaas.mirantis.com/provider: baremetal
+    baremetal: hw-master-2
+  annotations:
+    "kaas.mirantis.com/baremetalhost-credentials-name": "master-2-bmc-credentials"
+spec:
+  # 'bootMode' parameter defines the boot mode for the server.
+  # Supported values are 'UEFI' and 'legacy'.
+  bootMode: UEFI
+  online: true
+  # The MAC address of the PXE interface of the third server.
+  bootMACAddress: 52:54:00:c5:91:33
+  bmc:
+    # The IP address of the BMC endpoint for the third server.
+    # Verify that you can access this address from the host
+    # where you run the bootstrap script (seed node).
+    address: SET_KVM_ADDRESS
+    credentialsName: ''

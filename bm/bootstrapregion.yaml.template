@@ -1,0 +1,7 @@
+apiVersion: kaas.mirantis.com/v1alpha1
+kind: BootstrapRegion
+metadata:
+  name: region-one
+  namespace: default
+spec:
+  provider: baremetal

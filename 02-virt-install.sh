@@ -18,10 +18,10 @@ create_vm() {
     --os-variant=ubuntu20.04 \
     --ram=24576 \
     --vcpus=8 \
-    --disk size=50,path=/var/lib/libvirt/images/${vm_name}-disk1.qcow2,bus=virtio,format=qcow2 \
+    --disk size=100,path=/var/lib/libvirt/images/${vm_name}-disk1.qcow2,bus=virtio,format=qcow2 \
     --disk size=50,path=/var/lib/libvirt/images/${vm_name}-disk2.qcow2,bus=virtio,format=qcow2 \
     --network bridge=br-pxe,model=virtio,mac=${mac} \
-    --network bridge=br-mke,model=virtio \
+    --network bridge=br-lcm,model=virtio \
     --network bridge=br-others,model=virtio \
     --graphics vnc \
     --boot network,hd \
@@ -40,13 +40,13 @@ create_vm_with_extra_disks() {
     --os-variant=ubuntu20.04 \
     --ram=24576 \
     --vcpus=8 \
-    --disk size=50,path=/var/lib/libvirt/images/${vm_name}-disk1.qcow2,bus=virtio,format=qcow2 \
+    --disk size=100,path=/var/lib/libvirt/images/${vm_name}-disk1.qcow2,bus=virtio,format=qcow2 \
     --disk size=50,path=/var/lib/libvirt/images/${vm_name}-disk2.qcow2,bus=virtio,format=qcow2 \
     --disk size=50,path=/var/lib/libvirt/images/${vm_name}-disk3.qcow2,bus=virtio,format=qcow2 \
     --disk size=50,path=/var/lib/libvirt/images/${vm_name}-disk4.qcow2,bus=virtio,format=qcow2 \
     --disk size=50,path=/var/lib/libvirt/images/${vm_name}-disk5.qcow2,bus=virtio,format=qcow2 \
     --network bridge=br-pxe,model=virtio,mac=${mac} \
-    --network bridge=br-mke,model=virtio \
+    --network bridge=br-lcm,model=virtio \
     --network bridge=br-others,model=virtio \
     --graphics vnc \
     --boot network,hd \
