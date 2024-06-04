@@ -1,6 +1,6 @@
 # KaaS Bootstrap Setup
 
-This guide provides step-by-step instructions for setting up a bare metal server and bootstrapping a KaaS (Kubernetes as a Service) environment.
+This guide provides step-by-step instructions for setting up a bare metal server and bootstrapping a MCC environment.
 
 ## Prerequisites
 
@@ -19,73 +19,77 @@ This guide provides step-by-step instructions for setting up a bare metal server
 ```bash
 ./01-install-vbmc.sh
 ```
-3. Run Virt Install
+
+### 3. Run Virt Install
 
 ```bash
 ./02-virt-install.sh --create
 ```
-4. Run Bootstrap Script
+
+### 4. Run Bootstrap Script
 
 ```bash
 ./bootstrap_node.sh
 ```
-5. Reboot the Node
+
+### 5. Reboot the Node
 
 ```bash
 sudo reboot
 ```
-6.  Run Bootstrap Process
 
- i. Navigate to the kaas-bootstrap directory.
+### 6.  Run Bootstrap Process
 
- ```bash
- cd kaas-bootstrap
- ```
+  i. Navigate to the kaas-bootstrap directory.
+
+   ```bash
+   cd kaas-bootstrap
+   ```
  ii. Execute the bootstrap script.
 
- ```bash
- ./bootstrap.sh bootstrapv2
- ```
+   ```bash
+   ./bootstrap.sh bootstrapv2
+   ```
 
-7. Apply Templates to Bootstrap
+### 7. Apply Templates to Bootstrap
 
  i. Apply the necessary templates using kubectl.
 
+   ```bash
+   ./kaas-bootstrap/bin/kubectl create -f ../bm/bootstrapregion.yaml.template
+   ./kaas-bootstrap/bin/kubectl create -f ../bm/serviceusers.yaml.template
+   ./kaas-bootstrap/bin/kubectl create -f ../bm/cluster.yaml.template
+   ./kaas-bootstrap/bin/kubectl create -f ../bm/baremetalhostprofiles.yaml.template
+   ./kaas-bootstrap/bin/kubectl create -f ../bm/baremetalhosts.yaml.template
+   ./kaas-bootstrap/bin/kubectl create -f ../bm/ipam-objects.yaml.template
+   ./kaas-bootstrap/bin/kubectl create -f ../bm/metallbconfig.yaml.template
+   ./kaas-bootstrap/bin/kubectl create -f ../bm/machines.yaml.template
+   ```
+
+### 8. Monitor the Process
+
+  ```bash
+  kubectl get bmh -o go-template='{{- range .items -}} {{.status.provisioning.state}}{{"\n"}} {{- end -}}'
+
+  kubectl get bootstrapregions -o go-template='{{(index .items 0).status.ready}}{{"\n"}}'
+
+  kubectl get bootstrapregions -o go-template='{{(index .items 0).status.conditions}}{{"\n"}}'
+  ```
+
+### 9. Approve the Changes
+
+  ```bash
+  ./container-cloud bootstrap approve all
+  ```
+
+### 10. Check Machine Status
+
  ```bash
- ./kaas-bootstrap/bin/kubectl create -f ../bm/bootstrapregion.yaml.template
- ./kaas-bootstrap/bin/kubectl create -f ../bm/serviceusers.yaml.template
- ./kaas-bootstrap/bin/kubectl create -f ../bm/cluster.yaml.template
- ./kaas-bootstrap/bin/kubectl create -f ../bm/baremetalhostprofiles.yaml.template
- ./kaas-bootstrap/bin/kubectl create -f ../bm/baremetalhosts.yaml.template
- ./kaas-bootstrap/bin/kubectl create -f ../bm/ipam-objects.yaml.template
- ./kaas-bootstrap/bin/kubectl create -f ../bm/metallbconfig.yaml.template
- ./kaas-bootstrap/bin/kubectl create -f ../bm/machines.yaml.template
+ kubectl get bmh -o wide
+ kubectl get lcmmachines -o wide
  ```
 
-8. Monitor the Process
-
-```bash
-kubectl get bmh -o go-template='{{- range .items -}} {{.status.provisioning.state}}{{"\n"}} {{- end -}}'
-
-kubectl get bootstrapregions -o go-template='{{(index .items 0).status.ready}}{{"\n"}}'
-
-kubectl get bootstrapregions -o go-template='{{(index .items 0).status.conditions}}{{"\n"}}'
-```
-
-9. Approve the Changes
-
-```bash
-./container-cloud bootstrap approve all
-```
-
-10. Check Machine Status
-
-```bash
-kubectl get bmh -o wide
-kubectl get lcmmachines -o wide
-```
-
-11. Generate Kubeconfig File
+### 11. Generate Kubeconfig File
 
   i. Once lcmmachine is in Ready state, generate the kubeconfig file for the MCC cluster.
 
@@ -99,20 +103,16 @@ kubectl get lcmmachines -o wide
   ./container-cloud get keycloak-creds --mgmt-kubeconfig kubeconfig
   ```
 
-12.  Delete the Cluster (Optional)
+### 12.  Delete the Cluster (Optional)
 
-```bash
-./bin/kind delete cluster -n clusterapi
-```
+ ```bash
+ ./bin/kind delete cluster -n clusterapi
+ ```
 
-##Cleanup
+### Cleanup
 
 1. To clean up the VMs and associated resources, run the following script:
 
 ```bash
 ./manage_vms.sh --cleanup
 ```
-
-
-
-
