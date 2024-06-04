@@ -82,11 +82,8 @@ spec:
             values: {}
           - name: baremetal-provider
             values:
-            values:
               config:
-                allInOneAllowed: false
                 customHostnamesEnabled: true
-                internalLoadBalancers: false
           - name: kaas-ipam
             values: {}
         management:

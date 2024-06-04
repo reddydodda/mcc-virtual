@@ -15,7 +15,7 @@ spec:
   username: root
 # NIT: raw password
   password:
-    value: password
+    value: admin123
 ---
 apiVersion: kaas.mirantis.com/v1alpha1
 kind: BareMetalHostCredential
@@ -28,7 +28,7 @@ spec:
   username: root
 # NIT: raw password
   password:
-    value: password
+    value: admin123
 ---
 apiVersion: kaas.mirantis.com/v1alpha1
 kind: BareMetalHostCredential
@@ -41,7 +41,7 @@ spec:
   username: root
 # NIT: raw password
   password:
-    value: password
+    value: admin123
 ---
 apiVersion: metal3.io/v1alpha1
 kind: BareMetalHost
@@ -63,7 +63,7 @@ spec:
     # The IP address of the BMC endpoint for the first server.
     # Verify that you can access this address from the host
     # where you run the bootstrap script (seed node).
-    address: SET_KVM_ADDRESS
+    address: SET_KVM_ADDRESS:6231
     credentialsName: ''
 ---
 apiVersion: metal3.io/v1alpha1
@@ -86,7 +86,7 @@ spec:
     # The IP address of the BMC endpoint for the second server.
     # Verify that you can access this address from the host
     # where you run the bootstrap script (seed node).
-    address: SET_KVM_ADDRESS
+    address: SET_KVM_ADDRESS:6232
     credentialsName: ''
 ---
 apiVersion: metal3.io/v1alpha1
@@ -109,5 +109,5 @@ spec:
     # The IP address of the BMC endpoint for the third server.
     # Verify that you can access this address from the host
     # where you run the bootstrap script (seed node).
-    address: SET_KVM_ADDRESS
+    address: SET_KVM_ADDRESS:6233
     credentialsName: ''
