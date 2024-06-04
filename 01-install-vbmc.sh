@@ -5,7 +5,7 @@ sudo apt update
 sudo apt upgrade -y
 
 # Install necessary packages
-sudo apt install -y python3-virtualenv kvm virt-manager qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils ipmitool
+sudo apt install -y python3-virtualenv kvm virt-manager qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils ipmitool jq wget docker.io
 
 # Add the user to the libvirt and kvm groups
 sudo usermod -aG libvirt $(whoami)
@@ -17,7 +17,7 @@ network:
   version: 2
   renderer: networkd
   bridges:
-    br-mke:
+    br-lcm:
       addresses:
         - 192.168.123.1/24
       parameters:
@@ -46,11 +46,7 @@ sudo bash -c 'cat <<EOF > /tmp/br-pxe.xml
     </nat>
   </forward>
   <bridge name="virbr-pxe" stp="on" delay="0"/>
-  <ip address="192.168.122.1" netmask="255.255.255.0">
-    <dhcp>
-      <range start="192.168.122.2" end="192.168.122.254"/>
-    </dhcp>
-  </ip>
+  <ip address="192.168.122.1" netmask="255.255.255.0"/>
 </network>
 EOF'
 

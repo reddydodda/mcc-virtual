@@ -1,0 +1,182 @@
+# BareMetalHostProfile resource allows you to define how the storage
+# devices and the operating system are provisioned and configured.
+apiVersion: metal3.io/v1alpha1
+metadata:
+  namespace: default
+  name: default-simple-since-2-24
+  labels:
+    kaas.mirantis.com/defaultBMHProfile: 'true'
+kind: BareMetalHostProfile
+spec:
+  # List of definitions of the physical storage devices. To configure more
+  # storage devices per host, add additional devices to this list.
+  # Each section in the list allows you to define disk parameters and
+  # restrictions in the 'device' field, and a list of partitions to be
+  # created on the device in the 'paritions' field.
+  devices:
+    # Define configuration of the first device on the host. This device
+    # will be partitioned and used as a system boot device. Minimal size
+    # for this device is 60Gib. If your device is smaller, change
+    # the 'minSize' parameter in the device definition appropriately.
+    # Use of a system device smaller than 60Gib is not recommended.
+    - device:
+        # Use the appropriate name of the device in the system. '/dev/sda'
+        # typically defines the first device on a system with 2 disks.
+        #byName: /dev/sda
+        minSize: 60Gi
+        # Deprecated. 'wipe' field, if set to 'true', forces the Container Cloud
+        # bare metal provisioning system to erase the contents of the device before using it.
+        #wipe: true
+        wipeDevice:
+          eraseMetadata:
+            enabled: true
+        #  eraseDevice:
+        #    timeout: 3600
+        #    blkdiscard:
+        #      enabled: false
+        #      zeroout: "fallback"
+        #    userDefined:
+        #      enabled: false
+        #      command: ""
+        #      script: ""
+      # Do not change the names of partitions in this section.
+      # They are defined as expected by the Ubuntu operating system that
+      # will be installed.
+      partitions:
+        - name: bios_grub
+          # 4Mb boot partition is required for legacy (non-UEFI) systems.
+          size: 4Mi
+          partflags: ['bios_grub']
+        - name: uefi
+          partflags: ['esp']
+          size: 200Mi
+        - name: config-2
+          # Size of this partition is limited to 64Mb.
+          size: 64Mi
+        - name: lvm_root_part
+          # The 0 size for the partition means that this partition will
+          # use all remaining space on the device. Change it only if
+          # you want to have a root file system of specific size.
+          # WARNING: only last one partition on disk could be set as "0" size.
+          size: 0
+    # Define configuration of the second device on the host. This device
+    # will be used to store application data for management services of
+    # Container Cloud.
+    # The application data is stored in directories on this device,
+    # mounted as volumes to the application pods.
+    - device:
+        # Use the appropriate name of the device in the system. Typically,
+        # '/dev/sdb' defines the second device on a system with 3 disks.
+        #byName: /dev/sdb
+        minSize: 30Gi
+        # Deprecated. 'wipe' field, if set to 'true', forces the Container Cloud
+        # bare metal provisioning system to erase the contents of the  device before using it.
+        #wipe: true
+        wipeDevice:
+          eraseMetadata:
+            enabled: true
+        #  eraseDevice:
+        #    timeout: 3600
+        #    blkdiscard:
+        #      enabled: false
+        #      zeroout: "fallback"
+        #    userDefined:
+        #      enabled: false
+        #      command: ""
+        #      script: ""
+      # This device is partitioned for use by local volume provisioner.
+      partitions:
+        - name: lvm_lvp_part
+          # The 0 size for the partition means that this partition will
+          # use all remaining space on the device.
+          # WARNING: only last one partition on disk could be set as "0" size.
+          size: 0
+  volumeGroups:
+    - name: lvm_root
+      devices:
+        - partition: lvm_root_part
+    - name: lvm_lvp
+      devices:
+        - partition: lvm_lvp_part
+  logicalVolumes:
+    - name: root
+      vg: lvm_root
+      # If you set the size to 0, the logical volume will use all available
+      # space in its volume group.
+      # WARNING: only last one partition on disk could be set as "0" size.
+      size: 0
+    - name: lvp
+      vg: lvm_lvp
+      # If you set the size to 0, the logical volume will use all available
+      # space in its volume group.
+      # WARNING: only last one partition on disk could be set as "0" size.
+      size: 0
+  fileSystems:
+    - fileSystem: vfat
+      partition: config-2
+    - fileSystem: vfat
+      partition: uefi
+      mountPoint: /boot/efi
+    - fileSystem: ext4
+      logicalVolume: root
+      mountPoint: /
+    - fileSystem: ext4
+      logicalVolume: lvp
+      mountPoint: /mnt/local-volumes/
+  preDeployScript: |
+    #!/bin/bash -ex
+    echo $(date) 'pre_deploy_script done' >> /root/pre_deploy_done
+  postDeployScript: |
+    #!/bin/bash -ex
+    echo $(date) 'post_deploy_script done' >> /root/post_deploy_done
+  grubConfig:
+    defaultGrubOptions:
+      - 'GRUB_DISABLE_RECOVERY="true"'
+      - 'GRUB_PRELOAD_MODULES=lvm'
+      - 'GRUB_TIMEOUT=20'
+  # 'kernelParameters' section defines parameters of the operating system.
+  # See comments for the individual options for more information.
+  kernelParameters:
+    sysctl:
+      # Please check list of prohibited to change options:
+      # https://docs.mirantis.com/mke/3.6/install/predeployment/set-up-kernel-default-protections.html
+      # With this setting, kernel logs will be available only to the 'root'
+      # user.
+      kernel.dmesg_restrict: "1"
+      # Controls whether core dumps will append the PID to the core filename
+      # useful for debugging multi-threaded applications.
+      kernel.core_uses_pid: "1"
+      # Increase system file descriptor limit up to
+      # 9223372036854775807 (0x7fffffffffffffff) on a 64-bit system.
+      # Linux kernel documentation suggests that inode-max should be 3-4 times
+      # larger than this value.
+      fs.file-max: "9223372036854775807"
+      # The Linux kernel provides the Asynchronous non-blocking I/O (AIO) feature that allows a
+      # process to initiate multiple I/O operations simultaneously without having to wait for any of them to complete.
+      # This helps boost performance for applications that are able to overlap processing and I/O.
+      fs.aio-max-nr: "1048576"
+      # The inotify API provides a mechanism for monitoring file system events.
+      # Inotify can be used to monitor individual files, or to monitor directories.
+      # When a directory is monitored, inotify will return events for the directory itself, and for files inside the directory.
+      fs.inotify.max_user_instances: "4096"
+      # This file contains the maximum number of memory map areas a process may have.
+      # Memory map areas are used as a side-effect of calling malloc, directly by mmap and mprotect, and also when loading shared libraries.
+      # While most applications need less than a thousand maps, certain programs,
+      # particularly malloc debuggers, may consume lots of them, e.g., up to one or two maps per allocation.
+      vm.max_map_count: "262144"
+      # This option enables "Loose mode" assymetric-routing between k8s-lcm (LCM network) and bond0 (PXE network).
+      # Required only during bootstrap process, since bootstrap-seed node might not
+      # contain all required networks. (For example, when only pxe network configured on seed node)
+      # For details, see
+      # https://docs.mirantis.com/container-cloud/latest/deployment-guide/deploy-bm-mgmt.html
+      net.ipv4.conf.all.rp_filter: "2"
+      net.ipv4.conf.k8s-lcm.rp_filter: "2"
+      net.ipv4.conf.bond0.rp_filter: "2"
+      fs.inotify.max_user_watches: "81920"
+    # 'modules' field contains a list of files to be created in the
+    # '/etc/modprobe.d/' directory and the contents of the files.
+    # Use them to configure specific kernel modules on your system.
+    #modules:
+    #  - filename: kvm_intel.conf
+    #    content: |
+    #      options kvm_intel nested=1

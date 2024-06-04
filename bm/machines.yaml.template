@@ -1,0 +1,47 @@
+apiVersion: "cluster.k8s.io/v1alpha1"
+kind: MachineList
+items:
+- apiVersion: "cluster.k8s.io/v1alpha1"
+  kind: Machine
+  metadata:
+    name: master-0
+    labels: &cp_labels
+      kaas.mirantis.com/provider: baremetal
+      cluster.sigs.k8s.io/cluster-name: kaas-mgmt
+      cluster.sigs.k8s.io/control-plane: "true"
+  spec:
+    providerSpec:
+      value: &cp_value
+        apiVersion: "baremetal.k8s.io/v1alpha1"
+        kind: "BareMetalMachineProviderSpec"
+        hostSelector:
+          matchLabels:
+            baremetal: hw-master-0
+
+- apiVersion: "cluster.k8s.io/v1alpha1"
+  kind: Machine
+  metadata:
+    name: master-1
+    labels:
+      <<: *cp_labels
+  spec:
+    providerSpec:
+      value:
+        <<: *cp_value
+        hostSelector:
+          matchLabels:
+            baremetal: hw-master-1
+
+- apiVersion: "cluster.k8s.io/v1alpha1"
+  kind: Machine
+  metadata:
+    name: master-2
+    labels:
+      <<: *cp_labels
+  spec:
+    providerSpec:
+      value:
+        <<: *cp_value
+        hostSelector:
+          matchLabels:
+            baremetal: hw-master-2
