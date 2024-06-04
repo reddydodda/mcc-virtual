@@ -1,51 +1,69 @@
 #!/bin/bash
 
-sudo apt update && sudo apt dist-upgrade -y
+# Update and upgrade OS packages
+sudo apt update
+sudo apt upgrade -y
 
-sudo apt install gcc libpq-dev python3-virtualenv libvirt-dev python3-dev python3-pip python3-venv python3-wheel -y
+# Install necessary packages
+sudo apt install -y python3-virtualenv kvm virt-manager qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils ipmitool
 
-sudo apt install qemu-kvm libvirt-bin bridge-utils virtinst virt-manager netcat-openbsd qemu libvirt-clients libvirt-daemon-system
+# Add the user to the libvirt and kvm groups
+sudo usermod -aG libvirt $(whoami)
+sudo usermod -aG kvm $(whoami)
 
-python3 -m virtualenv --system-site-packages --python=python3 --download /opt/vbmc
+# Update netplan configuration for br-lcm and br-others without DHCP
+sudo bash -c 'cat <<EOF > /etc/netplan/01-netcfg.yaml
+network:
+  version: 2
+  renderer: networkd
+  bridges:
+    br-mke:
+      addresses:
+        - 192.168.123.1/24
+      parameters:
+        stp: false
+        forward-delay: 0
+      interfaces: []
+    br-others:
+      addresses:
+        - 192.168.124.1/24
+      parameters:
+        stp: false
+        forward-delay: 0
+      interfaces: []
+EOF'
 
-/opt/vbmc/bin/pip3 install wheel setuptools pkgconfig
-/opt/vbmc/bin/pip3 install virtualbmc
+# Apply netplan configuration
+sudo netplan apply
 
-cat << EOF > /etc/systemd/system/vbmcd.service
-[Install]
-WantedBy = multi-user.target
+# Define and start the virtual network for br-pxe using virsh
+sudo bash -c 'cat <<EOF > /tmp/br-pxe.xml
+<network>
+  <name>br-pxe</name>
+  <forward mode="nat">
+    <nat>
+      <port start="1024" end="65535"/>
+    </nat>
+  </forward>
+  <bridge name="virbr-pxe" stp="on" delay="0"/>
+  <ip address="192.168.122.1" netmask="255.255.255.0">
+    <dhcp>
+      <range start="192.168.122.2" end="192.168.122.254"/>
+    </dhcp>
+  </ip>
+</network>
+EOF'
 
-[Service]
-BlockIOAccounting = True
-CPUAccounting = True
-ExecReload = /bin/kill -HUP $MAINPID
-ExecStart = /opt/vbmc/bin/vbmcd --foreground
-Group = root
-MemoryAccounting = True
-PrivateDevices = False
-PrivateNetwork = False
-PrivateTmp = False
-PrivateUsers = False
-Restart = on-failure
-RestartSec = 2
-Slice = vbmc.slice
-TasksAccounting = True
-TimeoutSec = 120
-Type = simple
-User = root
+sudo virsh net-define /tmp/br-pxe.xml
+sudo virsh net-start br-pxe
+sudo virsh net-autostart br-pxe
 
-[Unit]
-After = libvirtd.service
-After = syslog.target
-After = network.target
-Description = vbmc service
+# Install pip and virtualbmc
+sudo apt install -y python3-pip
+sudo pip3 install virtualbmc
 
-EOF
+# Enable and start virtualbmc service
+sudo systemctl enable virtualbmc
+sudo systemctl start virtualbmc
 
-
-sudo systemctl daemon-reload
-sudo systemctl enable vbmcd.service
-sudo systemctl start vbmcd.service
-
-
-/opt/vbmc/bin/vbmc list
+echo "Script completed successfully."
