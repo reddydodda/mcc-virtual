@@ -22,7 +22,7 @@ spec:
     - device:
         # Use the appropriate name of the device in the system. '/dev/sda'
         # typically defines the first device on a system with 2 disks.
-        #byName: /dev/sda
+        byName: /dev/sda
         minSize: 60Gi
         # Deprecated. 'wipe' field, if set to 'true', forces the Container Cloud
         # bare metal provisioning system to erase the contents of the device before using it.
@@ -67,7 +67,7 @@ spec:
     - device:
         # Use the appropriate name of the device in the system. Typically,
         # '/dev/sdb' defines the second device on a system with 3 disks.
-        #byName: /dev/sdb
+        byName: /dev/sdb
         minSize: 30Gi
         # Deprecated. 'wipe' field, if set to 'true', forces the Container Cloud
         # bare metal provisioning system to erase the contents of the  device before using it.
