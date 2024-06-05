@@ -78,6 +78,8 @@ sudo reboot
 
 ### 9. Approve the Changes
 
+  BMH node status should be `available` before approving bootstrap
+
   ```bash
   ./container-cloud bootstrap approve all
   ```
