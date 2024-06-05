@@ -1,0 +1,106 @@
+---
+apiVersion: kaas.mirantis.com/v1alpha1
+kind: BareMetalHostCredential
+metadata:
+  name: bm-mosk-ctl-01-credentials
+  namespace: SET_NAMESPACE
+  labels:
+    kaas.mirantis.com/provider: baremetal
+    kaas.mirantis.com/region: region-one
+spec:
+  username: root
+  password:
+    value: admin123
+---
+apiVersion: metal3.io/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: bm-mosk-ctl-01
+  namespace: SET_NAMESPACE
+  annotations:
+    "kaas.mirantis.com/baremetalhost-credentials-name": "bm-mosk-ctl-01-credentials"
+    "inspect.metal3.io/hardwaredetails-storage-sort-term": "wwn ASC, by_path ASC, type ASC"
+  labels:
+    kaas.mirantis.com/baremetalhost-id: hw-mosk-ctl-01
+    hostlabel.bm.kaas.mirantis.com/controlplane: 'true'
+    kaas.mirantis.com/provider: baremetal
+    kaas.mirantis.com/region: region-one
+spec:
+  online: true
+  bootMode: UEFI
+  bootMACAddress: 52:54:00:c5:92:11
+  bmc:
+    address: KVM_NODE_IP:6241
+    credentialsName: ''
+    disableCertificateVerification: true
+---
+apiVersion: kaas.mirantis.com/v1alpha1
+kind: BareMetalHostCredential
+metadata:
+  name: bm-mosk-ctl-02-credentials
+  namespace: SET_NAMESPACE
+  labels:
+    kaas.mirantis.com/provider: baremetal
+    kaas.mirantis.com/region: region-one
+spec:
+  username: root
+  password:
+    value: admin123
+---
+apiVersion: metal3.io/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: bm-mosk-ctl-02
+  namespace: SET_NAMESPACE
+  annotations:
+    "kaas.mirantis.com/baremetalhost-credentials-name": "bm-mosk-ctl-02-credentials"
+    "inspect.metal3.io/hardwaredetails-storage-sort-term": "wwn ASC, by_path ASC, type ASC"
+  labels:
+    kaas.mirantis.com/baremetalhost-id: hw-mosk-ctl-02
+    hostlabel.bm.kaas.mirantis.com/controlplane: 'true'
+    kaas.mirantis.com/provider: baremetal
+    kaas.mirantis.com/region: region-one
+spec:
+  online: true
+  bootMode: UEFI
+  bootMACAddress: 52:54:00:c5:92:22
+  bmc:
+    address: KVM_NODE_IP:6242
+    credentialsName: ''
+    disableCertificateVerification: true
+---
+apiVersion: kaas.mirantis.com/v1alpha1
+kind: BareMetalHostCredential
+metadata:
+  name: bm-mosk-ctl-03-credentials
+  namespace: SET_NAMESPACE
+  labels:
+    kaas.mirantis.com/provider: baremetal
+    kaas.mirantis.com/region: region-one
+spec:
+  username: root
+  password:
+    value: admin123
+---
+apiVersion: metal3.io/v1alpha1
+kind: BareMetalHost
+metadata:
+  name: bm-mosk-ctl-03
+  namespace: SET_NAMESPACE
+  annotations:
+    "kaas.mirantis.com/baremetalhost-credentials-name": "bm-mosk-ctl-03-credentials"
+    "inspect.metal3.io/hardwaredetails-storage-sort-term": "wwn ASC, by_path ASC, type ASC"
+  labels:
+    kaas.mirantis.com/baremetalhost-id: hw-mosk-ctl-03
+    hostlabel.bm.kaas.mirantis.com/controlplane: 'true'
+    kaas.mirantis.com/provider: baremetal
+    kaas.mirantis.com/region: region-one
+spec:
+  online: true
+  bootMode: UEFI
+  bootMACAddress: 52:54:00:c5:92:33
+  bmc:
+    address: KVM_NODE_IP:6243
+    credentialsName: ''
+    disableCertificateVerification: true
+---

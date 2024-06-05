@@ -1,0 +1,62 @@
+apiVersion: cluster.k8s.io/v1alpha1
+kind: Cluster
+metadata:
+  name: SET_NAMESPACE
+  namespace: SET_NAMESPACE
+  labels:
+    kaas.mirantis.com/provider: baremetal
+    kaas.mirantis.com/region: region-one
+spec:
+  clusterNetwork:
+    services:
+      cidrBlocks:
+        - 172.31.128.0/18
+    pods:
+      cidrBlocks:
+        - 172.31.0.0/17
+  providerSpec:
+    value:
+      apiVersion: baremetal.k8s.io/v1alpha1
+      kind: BaremetalClusterProviderSpec
+      release: SET_MOSK_RELEASE
+      dedicatedControlPlane: false
+      helmReleases:
+        - name: metallb
+          values:
+            speaker:
+              nodeSelector:
+                openstack-control-plane: enabled
+        - name: ceph-controller
+          values: {}
+        - name: stacklight
+          values:
+            clusterSize: tiny
+            highAvailabilityEnabled: true
+            ceph:
+              enabled: true
+            openstack:
+              insecure:
+                external: true
+            elasticsearch:
+              persistentVolumeClaimSize: 30Gi
+              retentionTime:
+                logstash: 2d
+                events: 2d
+                notifications: 2d
+            logging:
+              enabled: true
+              level: WARNING
+              persistentVolumeClaimSize: 10Gi
+            prometheusServer:
+              persistentVolumeClaimSize: 10Gi
+              retentionSize: 9GB
+              retentionTime: 2d
+              watchDogAlertEnabled: false
+      publicKeys:
+        - name: bootstrap-key
+      audit:
+        auditd:
+          enabled: false
+      kaas:
+        management:
+          enabled: false

@@ -1,0 +1,83 @@
+apiVersion: lcm.mirantis.com/v1alpha1
+kind: OpenStackDeployment
+metadata:
+  name: mosk-osdpl
+  namespace: openstack
+spec:
+  features:
+    database:
+      backup:
+        enabled: true
+    #keystone:
+    #  keycloak:
+    #    enabled: true
+    #    oidc:
+    #      OIDCOAuthSSLValidateServer: false
+    #      OIDCSSLValidateServer: false
+    #    url: https://SET_KEYCLOAKIP
+    neutron:
+      dns_servers:
+      - 8.8.8.8
+      - 1.1.1.1
+      dvr:
+        enabled: true
+      external_networks:
+      - physnet: physnet1
+        interface: br-fip
+        bridge: br-ext
+        network_types:
+         - flat
+        vlan_ranges: null
+        mtu: 1500
+      tunnel_interface: k8s-others
+    nova:
+      allocation_ratios:
+        cpu: 4
+        disk: 1
+        ram: 1
+      console:
+        novnc:
+          tls:
+            enabled: false
+      images:
+        backend: ceph
+      live_migration_interface: k8s-others
+      vcpu_type: host-model
+    octavia:
+      lb_network:
+        subnets:
+        - pool_end: 172.31.255.250
+          pool_start: 172.31.240.10
+          range: 172.31.240.0/20
+    #services:
+    #- instance-ha
+    ssl:
+      public_endpoints:
+        api_cert:
+          value_from:
+            secret_key_ref:
+              key: api_cert
+              name: openstack-ssl-secret
+        api_key:
+          value_from:
+            secret_key_ref:
+              key: api_key
+              name: openstack-ssl-secret
+        ca_cert:
+          value_from:
+            secret_key_ref:
+              key: ca_cert
+              name: openstack-ssl-secret
+  openstack_version: antelope
+  preset: compute
+  public_domain_name: it.just.works
+  region_name: RegionOne
+  services:
+    orchestration:
+      heat:
+        values:
+          conf:
+            heat:
+              clients_heat:
+                insecure: true
+  size: tiny
