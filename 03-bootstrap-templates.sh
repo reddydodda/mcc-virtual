@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# Set the necessary variables
+MCC_RELEASE="mke-16-1-4-3-7-8"
+
+# Check if MCC_RELEASE is set
+if [[ -z "$MCC_RELEASE" ]]; then
+  echo "Error: MCC_RELEASE is not set."
+  exit 1
+fi
+
 # Get the directory where the script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
@@ -31,12 +40,21 @@ else
 fi
 
 # Step 3: Update SET_KVM_ADDRESS in baremetalhosts.yaml.template
-BM_TEMPLATE_FILE="${SCRIPT_DIR}/mcc/baremetalhosts.yaml.template"
+MCC_TEMPLATE_FILE="${SCRIPT_DIR}/mcc/baremetalhosts.yaml.template"
 
-if [ -f "${BM_TEMPLATE_FILE}" ]; then
-  sed -i "s/SET_KVM_ADDRESS/${KVM_NODE_IP}/g" ${BM_TEMPLATE_FILE}
+if [ -f "${MCC_TEMPLATE_FILE}" ]; then
+  sed -i "s/SET_KVM_ADDRESS/${KVM_NODE_IP}/g" ${MCC_TEMPLATE_FILE}
 else
-  echo "baremetalhosts.yaml.template file not found at ${BM_TEMPLATE_FILE}"
+  echo "baremetalhosts.yaml.template file not found at ${MCC_TEMPLATE_FILE}"
+fi
+
+# Step 4: Update SET_MCC_RELEASE in cluster.yaml.template
+MCC_TEMPLATE_FILE="${SCRIPT_DIR}/mcc/cluster.yaml.template"
+
+if [ -f "${MCC_TEMPLATE_FILE}" ]; then
+  sed -i "s/SET_MCC_RELEASE/${MCC_RELEASE}/g" ${MCC_TEMPLATE_FILE}
+else
+  echo "cluster.yaml.template file not found at ${MCC_TEMPLATE_FILE}"
 fi
 
 rm ${SCRIPT_DIR}/get_container_cloud.sh

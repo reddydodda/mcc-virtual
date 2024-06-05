@@ -35,7 +35,7 @@ spec:
       # The 'release' field in this section will be set automatically
       # based on the data of the Container Cloud release you are going
       # to install. Do not set this parameter manually.
-      # release:
+      release: SET_MCC_RELEASE
       #
       # 'nodeCidr' parameter is not applied by the Container Cloud
       # bare metal provider.
