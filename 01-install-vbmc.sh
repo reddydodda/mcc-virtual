@@ -13,6 +13,10 @@ sudo apt install gcc libpq-dev libvirt-dev python3-dev python3-pip python3-venv 
 sudo usermod -aG libvirt $(whoami)
 sudo usermod -aG kvm $(whoami)
 
+# Get IP address from bond0 and write to hosts.txt
+BOND0_IP=$(ip -4 addr show bond0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -n 1)
+echo "${BOND0_IP}" > hosts.txt
+
 # Update netplan configuration for br-lcm and br-others without DHCP
 sudo bash -c 'cat <<EOF > /etc/netplan/01-netcfg.yaml
 network:
