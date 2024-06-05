@@ -1,10 +1,11 @@
 #!/bin/bash
 
 # Set the necessary variables
-MCC_RELEASE="mke-16-1-4-3-7-8"
+MCC_CLUSTER_RELEASE="mke-16-1-4-3-7-8"
+MCC_KAAS_RELEASE="kaas-2-26-4"
 
 # Check if MCC_RELEASE is set
-if [[ -z "$MCC_RELEASE" ]]; then
+if [[ -z "$MCC_RELEASE" || -z "$MOSK_RELEASE"  ]]; then
   echo "Error: MCC_RELEASE is not set."
   exit 1
 fi
@@ -52,7 +53,8 @@ fi
 MCC_TEMPLATE_FILE="${SCRIPT_DIR}/mcc/cluster.yaml.template"
 
 if [ -f "${MCC_TEMPLATE_FILE}" ]; then
-  sed -i "s/SET_MCC_RELEASE/${MCC_RELEASE}/g" ${MCC_TEMPLATE_FILE}
+  sed -i "s/SET_MCC_CLUSTER_RELEASE/${MCC_CLUSTER_RELEASE}/g" ${MCC_TEMPLATE_FILE}
+  sed -i "s/SET_MCC_KAAS_RELEASE/${MCC_KAAS_RELEASE}/g" ${MCC_TEMPLATE_FILE}
 else
   echo "cluster.yaml.template file not found at ${MCC_TEMPLATE_FILE}"
 fi
