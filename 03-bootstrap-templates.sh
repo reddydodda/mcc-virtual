@@ -31,7 +31,7 @@ else
 fi
 
 # Step 3: Update SET_KVM_ADDRESS in baremetalhosts.yaml.template
-BM_TEMPLATE_FILE="${SCRIPT_DIR}/bm/baremetalhosts.yaml.template"
+BM_TEMPLATE_FILE="${SCRIPT_DIR}/mcc/baremetalhosts.yaml.template"
 
 if [ -f "${BM_TEMPLATE_FILE}" ]; then
   sed -i "s/SET_KVM_ADDRESS/${KVM_NODE_IP}/g" ${BM_TEMPLATE_FILE}
@@ -40,5 +40,12 @@ else
 fi
 
 rm ${SCRIPT_DIR}/get_container_cloud.sh
+
+# Install kubectl binary
+if [ -f "${SCRIPT_DIR}/kaas-bootstrap/bin/kubectl" ]; then
+  sudo install -o root -g root -m 0755 "${SCRIPT_DIR}/kaas-bootstrap/bin/kubectl" /usr/local/bin/kubectl
+else
+  echo "kubectl binary not found at ${SCRIPT_DIR}/kaas-bootstrap/bin/kubectl"
+fi
 
 echo "Bootstrap script completed successfully."

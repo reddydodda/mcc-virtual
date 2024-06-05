@@ -17,6 +17,8 @@ fi
 # Get the directory where the script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+# Export Kubeconfig
+
 # Read KVM_NODE_IP from hosts.txt file
 if [ ! -f "${SCRIPT_DIR}/hosts.txt" ]; then
   echo "Error: hosts.txt file not found."
