@@ -1,0 +1,31 @@
+---
+apiVersion: kaas.mirantis.com/v1alpha1
+kind: MetalLBConfig
+metadata:
+  labels:
+    kaas.mirantis.com/provider: baremetal
+    kaas.mirantis.com/region: region-one
+    cluster.sigs.k8s.io/cluster-name: SET_NAMESPACE
+  name: mosk-metallb-config
+  namespace: SET_NAMESPACE
+spec:
+  templateName: mosk-metallb-template
+---
+apiVersion: ipam.mirantis.com/v1alpha1
+kind: MetalLBConfigTemplate
+metadata:
+  labels:
+    kaas.mirantis.com/provider: baremetal
+    kaas.mirantis.com/region: region-one
+    cluster.sigs.k8s.io/cluster-name: SET_NAMESPACE
+  name: mosk-metallb-template
+  namespace: SET_NAMESPACE
+spec:
+  templates:
+    l2Advertisements: |
+      - name: services
+        spec:
+          ipAddressPools:
+            - services
+          interfaces:
+            - k8s-lcm

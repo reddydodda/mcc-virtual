@@ -24,6 +24,7 @@ create_vm() {
     --network bridge=br-pxe,model=virtio,mac=${mac} \
     --network bridge=br-lcm,model=virtio \
     --network bridge=br-others,model=virtio \
+    --network bridge=br-fip,model=virtio \
     --graphics vnc \
     --boot network,hd \
     --noautoconsole
@@ -40,7 +41,7 @@ create_vm_with_extra_disks() {
     --name=${vm_name} \
     --os-type=linux \
     --os-variant=ubuntu20.04 \
-    --ram=24576 \
+    --ram=32768 \
     --vcpus=8 \
     --disk size=100,path=/var/lib/libvirt/images/${vm_name}-disk1.qcow2,bus=virtio,format=qcow2 \
     --disk size=50,path=/var/lib/libvirt/images/${vm_name}-disk2.qcow2,bus=virtio,format=qcow2 \
@@ -50,6 +51,7 @@ create_vm_with_extra_disks() {
     --network bridge=br-pxe,model=virtio,mac=${mac} \
     --network bridge=br-lcm,model=virtio \
     --network bridge=br-others,model=virtio \
+    --network bridge=br-fip,model=virtio \
     --graphics vnc \
     --boot network,hd \
     --noautoconsole

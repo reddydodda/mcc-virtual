@@ -56,14 +56,14 @@ sudo reboot
  i. Apply the necessary templates using kubectl.
 
    ```bash
-   ./kaas-bootstrap/bin/kubectl create -f ../bm/bootstrapregion.yaml.template
-   ./kaas-bootstrap/bin/kubectl create -f ../bm/serviceusers.yaml.template
-   ./kaas-bootstrap/bin/kubectl create -f ../bm/cluster.yaml.template
-   ./kaas-bootstrap/bin/kubectl create -f ../bm/baremetalhostprofiles.yaml.template
-   ./kaas-bootstrap/bin/kubectl create -f ../bm/baremetalhosts.yaml.template
-   ./kaas-bootstrap/bin/kubectl create -f ../bm/ipam-objects.yaml.template
-   ./kaas-bootstrap/bin/kubectl create -f ../bm/metallbconfig.yaml.template
-   ./kaas-bootstrap/bin/kubectl create -f ../bm/machines.yaml.template
+   ./kaas-bootstrap/bin/kubectl create -f ../mcc/bootstrapregion.yaml.template
+   ./kaas-bootstrap/bin/kubectl create -f ../mcc/serviceusers.yaml.template
+   ./kaas-bootstrap/bin/kubectl create -f ../mcc/cluster.yaml.template
+   ./kaas-bootstrap/bin/kubectl create -f ../mcc/baremetalhostprofiles.yaml.template
+   ./kaas-bootstrap/bin/kubectl create -f ../mcc/baremetalhosts.yaml.template
+   ./kaas-bootstrap/bin/kubectl create -f ../mcc/ipam-objects.yaml.template
+   ./kaas-bootstrap/bin/kubectl create -f ../mcc/metallbconfig.yaml.template
+   ./kaas-bootstrap/bin/kubectl create -f ../mcc/machines.yaml.template
    ```
 
 ### 8. Monitor the Process

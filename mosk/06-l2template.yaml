@@ -1,0 +1,76 @@
+---
+apiVersion: ipam.mirantis.com/v1alpha1
+kind: L2Template
+metadata:
+  name: mosk-default
+  namespace: SET_NAMESPACE
+  labels:
+    kaas.mirantis.com/provider: baremetal
+    kaas.mirantis.com/region: region-one
+    cluster.sigs.k8s.io/cluster-name: SET_NAMESPACE
+    ipam/DefaultForCluster: "1"
+spec:
+  autoIfMappingPrio:
+  - provision
+  - eno
+  - ens
+  - enp
+  l3Layout:
+    - scope: namespace
+      subnetName: k8s-lcm-nics
+      labelSelector:
+        kaas.mirantis.com/provider: baremetal
+        ipam/SVC-k8s-lcm: "presents"
+    - scope: namespace
+      subnetName: k8s-others
+#{#- protect go-template below from Jinja #}
+#{%- raw %}
+  npTemplate: |
+    version: 2
+    renderer: networkd
+    ethernets:
+      {{ nic 0 }}:
+        dhcp4: false
+        dhcp6: false
+        match:
+          macaddress: {{ mac 0 }}
+        set-name: {{ nic 0 }}
+      {{ nic 1 }}:
+        dhcp4: false
+        dhcp6: false
+        match:
+          macaddress: {{ mac 1 }}
+        set-name: {{ nic 1 }}
+      {{ nic 2 }}:
+        dhcp4: false
+        dhcp6: false
+        match:
+          macaddress: {{ mac 2 }}
+        set-name: {{ nic 2 }}
+      {{ nic 3 }}:
+        dhcp4: false
+        dhcp6: false
+        match:
+          macaddress: {{ mac 3 }}
+        set-name: {{ nic 3 }}
+    bridges:
+      k8s-lcm:
+        interfaces:
+          - {{ nic 1 }}
+        addresses:
+          - {{ ip "k8s-lcm:k8s-lcm-nics" }}
+        routes:
+          - to: 0.0.0.0/0
+            via: {{ gateway_from_subnet "k8s-ext-nics" }}
+        nameservers:
+          addresses: {{ nameservers_from_subnet "k8s-lcm-nics" }}
+      k8s-others:
+        interfaces:
+          - {{ nic 2 }}
+        addresses:
+          - {{ ip "k8s-others:k8s-others" }}
+      br-fip:
+        interfaces:
+          - {{ nic 3 }}
+#{%- endraw %}
+#{#- end protect go-template below from Jinja #}

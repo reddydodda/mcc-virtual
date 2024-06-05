@@ -1,0 +1,88 @@
+apiVersion: metal3.io/v1alpha1
+metadata:
+  namespace: SET_NAMESPACE
+  name: mosk-default
+  labels:
+    kaas.mirantis.com/region: region-one
+kind: BareMetalHostProfile
+spec:
+  devices:
+    - device:
+        byName: /dev/vda
+        minSize: 60Gi
+        wipeDevice:
+          eraseMetadata:
+            enabled: true
+      partitions:
+        - name: bios_grub
+          size: 4Mi
+          partflags: ['bios_grub']
+        - name: uefi
+          partflags: ['esp']
+          size: 200Mi
+        - name: config-2
+          size: 64Mi
+        - name: lvm_root_part
+          size: 0
+    - device:
+        byName: /dev/vdb
+        minSize: 30Gi
+        wipeDevice:
+          eraseMetadata:
+            enabled: true
+      partitions:
+        - name: lvm_lvp_part
+          size: 0
+  volumeGroups:
+    - name: lvm_root
+      devices:
+        - partition: lvm_root_part
+    - name: lvm_lvp
+      devices:
+        - partition: lvm_lvp_part
+  logicalVolumes:
+    - name: root
+      vg: lvm_root
+      size: 0
+    - name: lvp
+      vg: lvm_lvp
+      size: 0
+  fileSystems:
+    - fileSystem: vfat
+      partition: config-2
+    - fileSystem: vfat
+      partition: uefi
+      mountPoint: /boot/efi
+    - fileSystem: ext4
+      logicalVolume: root
+      mountPoint: /
+    - fileSystem: ext4
+      logicalVolume: lvp
+      mountPoint: /mnt/local-volumes/
+  preDeployScript: |
+    #!/bin/bash -ex
+    echo $(date) 'pre_deploy_script done' >> /root/pre_deploy_done
+  postDeployScript: |
+    #!/bin/bash -ex
+    echo -e "root:r00tme" | sudo chpasswd
+    echo $(date) 'post_deploy_script done' >> /root/post_deploy_done
+  grubConfig:
+    defaultGrubOptions:
+      - 'GRUB_DISABLE_RECOVERY="true"'
+      - 'GRUB_PRELOAD_MODULES=lvm'
+      - 'GRUB_TIMEOUT=20'
+  kernelParameters:
+    sysctl:
+      kernel.dmesg_restrict: "1"
+      kernel.core_uses_pid: "1"
+      fs.file-max: "9223372036854775807"
+      fs.aio-max-nr: "1048576"
+      fs.inotify.max_user_instances: "4096"
+      vm.max_map_count: "262144"
+      vm.panic_on_oom: "0"
+      vm.overcommit_memory: "1"
+      kernel.panic: "10"
+      kernel.panic_on_oops: "1"
+      kernel.keys.root_maxkeys: "1000000"
+      kernel.keys.root_maxbytes: "25000000"
+      fs.inotify.max_user_watches: "81920"

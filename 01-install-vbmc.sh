@@ -48,6 +48,11 @@ if sudo virsh net-info br-pxe >/dev/null 2>&1; then
     sudo virsh net-destroy br-pxe
     sudo virsh net-undefine br-pxe
 fi
+# Check if br-fip exists and remove it
+if sudo virsh net-info br-fip >/dev/null 2>&1; then
+    sudo virsh net-destroy br-fip
+    sudo virsh net-undefine br-fip
+fi
 
 # Define and start the virtual network for br-pxe using virsh
 sudo bash -c 'cat <<EOF > /tmp/br-pxe.xml
@@ -62,10 +67,28 @@ sudo bash -c 'cat <<EOF > /tmp/br-pxe.xml
   <ip address="192.168.122.1" netmask="255.255.255.0"/>
 </network>
 EOF'
-
 sudo virsh net-define /tmp/br-pxe.xml
 sudo virsh net-start br-pxe
 sudo virsh net-autostart br-pxe
+
+# Define and start the virtual network for br-fip using virsh
+sudo bash -c 'cat <<EOF > /tmp/br-fip.xml
+<network>
+  <name>br-fip</name>
+  <forward mode="nat">
+    <nat>
+      <port start="1024" end="65535"/>
+    </nat>
+  </forward>
+  <bridge name="br-fip" stp="on" delay="0"/>
+  <ip address="192.168.125.1" netmask="255.255.255.0"/>
+</network>
+EOF'
+
+sudo virsh net-define /tmp/br-fip.xml
+sudo virsh net-start br-fip
+sudo virsh net-autostart br-fip
+
 
 # Install pip and virtualbmc
 sudo python3 -m virtualenv --system-site-packages --python=python3 --download /opt/vbmc

@@ -1,0 +1,100 @@
+---
+apiVersion: "cluster.k8s.io/v1alpha1"
+kind: Machine
+metadata:
+  name: mosk-cmp-01
+  namespace: SET_NAMESPACE
+  labels:
+    cluster.sigs.k8s.io/cluster-name: SET_NAMESPACE
+    kaas.mirantis.com/provider: baremetal
+    kaas.mirantis.com/region: region-one
+spec:
+  providerSpec:
+    value:
+      apiVersion: "baremetal.k8s.io/v1alpha1"
+      kind: "BareMetalMachineProviderSpec"
+      bareMetalHostProfile:
+        name: mosk-default
+        namespace: SET_NAMESPACE
+      l2TemplateSelector:
+        name: mosk-default
+        namespace: SET_NAMESPACE
+      nodeLabels:
+      - key: openvswitch
+        value: enabled
+      - key: openstack-compute-node
+        value: enabled
+      - key: node-type
+        value: cmp-hc
+      hostSelector:
+        matchLabels:
+          kaas.mirantis.com/baremetalhost-id: hw-mosk-cmp-01
+          hostlabel.bm.kaas.mirantis.com/worker: 'true'
+          hostlabel.bm.kaas.mirantis.com/storage: 'true'
+---
+apiVersion: "cluster.k8s.io/v1alpha1"
+kind: Machine
+metadata:
+  name: mosk-cmp-02
+  namespace: SET_NAMESPACE
+  labels:
+    cluster.sigs.k8s.io/cluster-name: SET_NAMESPACE
+    kaas.mirantis.com/provider: baremetal
+    kaas.mirantis.com/region: region-one
+spec:
+  providerSpec:
+    value:
+      apiVersion: "baremetal.k8s.io/v1alpha1"
+      kind: "BareMetalMachineProviderSpec"
+      bareMetalHostProfile:
+        name: mosk-default
+        namespace: SET_NAMESPACE
+      l2TemplateSelector:
+        name: mosk-default
+        namespace: SET_NAMESPACE
+      nodeLabels:
+      - key: openvswitch
+        value: enabled
+      - key: openstack-compute-node
+        value: enabled
+      - key: node-type
+        value: cmp-hc
+      hostSelector:
+        matchLabels:
+          kaas.mirantis.com/baremetalhost-id: hw-mosk-cmp-02
+          hostlabel.bm.kaas.mirantis.com/worker: 'true'
+          hostlabel.bm.kaas.mirantis.com/storage: 'true'
+---
+apiVersion: "cluster.k8s.io/v1alpha1"
+kind: Machine
+metadata:
+  name: mosk-cmp-03
+  namespace: SET_NAMESPACE
+  labels:
+    cluster.sigs.k8s.io/cluster-name: SET_NAMESPACE
+    kaas.mirantis.com/provider: baremetal
+    kaas.mirantis.com/region: region-one
+spec:
+  providerSpec:
+    value:
+      apiVersion: "baremetal.k8s.io/v1alpha1"
+      kind: "BareMetalMachineProviderSpec"
+      bareMetalHostProfile:
+        name: mosk-default
+        namespace: SET_NAMESPACE
+      l2TemplateSelector:
+        name: mosk-default
+        namespace: SET_NAMESPACE
+      nodeLabels:
+      - key: openvswitch
+        value: enabled
+      - key: openstack-compute-node
+        value: enabled
+      - key: node-type
+        value: cmp-hc
+      hostSelector:
+        matchLabels:
+          kaas.mirantis.com/baremetalhost-id: hw-mosk-cmp-03
+          hostlabel.bm.kaas.mirantis.com/worker: 'true'
+          hostlabel.bm.kaas.mirantis.com/storage: 'true'
+---

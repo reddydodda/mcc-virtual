@@ -1,0 +1,106 @@
+---
+apiVersion: "cluster.k8s.io/v1alpha1"
+kind: Machine
+metadata:
+  name: mosk-ctl-01
+  namespace: SET_NAMESPACE
+  labels:
+    cluster.sigs.k8s.io/cluster-name: SET_NAMESPACE
+    kaas.mirantis.com/provider: baremetal
+    kaas.mirantis.com/region: region-one
+    cluster.sigs.k8s.io/control-plane: "true"
+spec:
+  providerSpec:
+    value:
+      apiVersion: "baremetal.k8s.io/v1alpha1"
+      kind: "BareMetalMachineProviderSpec"
+      bareMetalHostProfile:
+        name: mosk-default
+        namespace: SET_NAMESPACE
+      l2TemplateSelector:
+        name: mosk-default
+        namespace: SET_NAMESPACE
+      nodeLabels:
+      - key: openstack-control-plane
+        value: enabled
+      - key: openstack-gateway
+        value: enabled
+      - key: stacklight
+        value: enabled
+      - key: openvswitch
+        value: enabled
+      hostSelector:
+        matchLabels:
+          kaas.mirantis.com/baremetalhost-id: hw-mosk-ctl-01
+          hostlabel.bm.kaas.mirantis.com/controlplane: 'true'
+---
+apiVersion: "cluster.k8s.io/v1alpha1"
+kind: Machine
+metadata:
+  name: mosk-ctl-02
+  namespace: SET_NAMESPACE
+  labels:
+    cluster.sigs.k8s.io/cluster-name: SET_NAMESPACE
+    kaas.mirantis.com/provider: baremetal
+    kaas.mirantis.com/region: region-one
+    cluster.sigs.k8s.io/control-plane: "true"
+spec:
+  providerSpec:
+    value:
+      apiVersion: "baremetal.k8s.io/v1alpha1"
+      kind: "BareMetalMachineProviderSpec"
+      bareMetalHostProfile:
+        name: mosk-default
+        namespace: SET_NAMESPACE
+      l2TemplateSelector:
+        name: mosk-default
+        namespace: SET_NAMESPACE
+      nodeLabels:
+      - key: openstack-control-plane
+        value: enabled
+      - key: openstack-gateway
+        value: enabled
+      - key: stacklight
+        value: enabled
+      - key: openvswitch
+        value: enabled
+      hostSelector:
+        matchLabels:
+          kaas.mirantis.com/baremetalhost-id: hw-mosk-ctl-02
+          hostlabel.bm.kaas.mirantis.com/controlplane: 'true'
+---
+apiVersion: "cluster.k8s.io/v1alpha1"
+kind: Machine
+metadata:
+  name: mosk-ctl-03
+  namespace: SET_NAMESPACE
+  labels:
+    cluster.sigs.k8s.io/cluster-name: SET_NAMESPACE
+    kaas.mirantis.com/provider: baremetal
+    kaas.mirantis.com/region: region-one
+    cluster.sigs.k8s.io/control-plane: "true"
+spec:
+  providerSpec:
+    value:
+      apiVersion: "baremetal.k8s.io/v1alpha1"
+      kind: "BareMetalMachineProviderSpec"
+      bareMetalHostProfile:
+        name: mosk-default
+        namespace: SET_NAMESPACE
+      l2TemplateSelector:
+        name: mosk-default
+        namespace: SET_NAMESPACE
+      nodeLabels:
+      - key: openstack-control-plane
+        value: enabled
+      - key: openstack-gateway
+        value: enabled
+      - key: stacklight
+        value: enabled
+      - key: openvswitch
+        value: enabled
+      hostSelector:
+        matchLabels:
+          kaas.mirantis.com/baremetalhost-id: hw-mosk-ctl-03
+          hostlabel.bm.kaas.mirantis.com/controlplane: 'true'
+---
