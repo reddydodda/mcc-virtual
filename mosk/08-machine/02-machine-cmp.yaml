@@ -14,7 +14,7 @@ spec:
       apiVersion: "baremetal.k8s.io/v1alpha1"
       kind: "BareMetalMachineProviderSpec"
       bareMetalHostProfile:
-        name: mosk-default
+        name: mosk-cmp
         namespace: SET_NAMESPACE
       l2TemplateSelector:
         name: mosk-default
@@ -47,7 +47,7 @@ spec:
       apiVersion: "baremetal.k8s.io/v1alpha1"
       kind: "BareMetalMachineProviderSpec"
       bareMetalHostProfile:
-        name: mosk-default
+        name: mosk-cmp
         namespace: SET_NAMESPACE
       l2TemplateSelector:
         name: mosk-default
@@ -80,7 +80,7 @@ spec:
       apiVersion: "baremetal.k8s.io/v1alpha1"
       kind: "BareMetalMachineProviderSpec"
       bareMetalHostProfile:
-        name: mosk-default
+        name: mosk-cmp
         namespace: SET_NAMESPACE
       l2TemplateSelector:
         name: mosk-default
