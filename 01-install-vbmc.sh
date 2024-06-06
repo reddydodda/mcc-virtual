@@ -70,6 +70,17 @@ define_and_start_network "br-lcm" "192.168.123.1"
 define_and_start_network "br-others" "192.168.124.1"
 define_and_start_network "br-fip" "192.168.125.1"
 
+# Check for the largest unmounted disk
+LARGEST_DISK=$(lsblk -nd --output NAME,SIZE,TYPE,MOUNTPOINT | awk '$3=="disk" && $4=="" {print $1,$2}' | sort -k2 -hr | head -n 1 | awk '{print $1}')
+if [ -n "$LARGEST_DISK" ]; then
+  if ! lsblk -no FSTYPE /dev/$LARGEST_DISK | grep -q '.'; then
+    sudo mkfs.ext4 /dev/$LARGEST_DISK
+  fi
+  sudo mkdir -p /var/lib/libvirt/images_new
+  sudo mount /dev/$LARGEST_DISK /var/lib/libvirt/images_new
+  echo "/dev/$LARGEST_DISK /var/lib/libvirt/images_new ext4 defaults 0 0" | sudo tee -a /etc/fstab
+fi
+
 # Install pip and virtualbmc
 sudo python3 -m virtualenv --system-site-packages --python=python3 /opt/vbmc
 sudo /opt/vbmc/bin/pip3 install wheel setuptools pkgconfig

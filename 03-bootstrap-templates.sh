@@ -5,7 +5,7 @@ MCC_CLUSTER_RELEASE="mke-16-1-4-3-7-8"
 MCC_KAAS_RELEASE="kaas-2-26-4"
 
 # Check if MCC_RELEASE is set
-if [[ -z "$MCC_RELEASE" || -z "$MOSK_RELEASE"  ]]; then
+if [[ -z "$MCC_CLUSTER_RELEASE" || -z "$MCC_KAAS_RELEASE"  ]]; then
   echo "Error: MCC_RELEASE is not set."
   exit 1
 fi
