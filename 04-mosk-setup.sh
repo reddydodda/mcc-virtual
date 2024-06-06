@@ -5,7 +5,7 @@ NAMESPACE="mosk"
 MOSK_RELEASE="mosk-17-1-4-24-1-4"
 
 # Check if the required variables are set
-if [[ -z "$NAMESPACE" || -z "$MOSK_RELEASE" || ! -f "$SSH_KEY_PATH" ]]; then
+if [[ -z "$NAMESPACE" || -z "$MOSK_RELEASE" ]]; then
   echo "Error: Required variables are not set or files are missing."
   echo "Please ensure NAMESPACE, MOSK_RELEASE are defined and SSH key exists at $SSH_KEY_PATH."
   exit 1
