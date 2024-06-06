@@ -40,12 +40,16 @@ sudo reboot
 
 ### 6.  Run Bootstrap Process
 
-  i. Navigate to the kaas-bootstrap directory.
+
+  i. Update/Replace mirantis.lic file at kaas-bootstrap/mirantis.lic.
+
+  
+  ii. Navigate to the kaas-bootstrap directory.
 
    ```bash
    cd kaas-bootstrap
    ```
- ii. Execute the bootstrap script.
+ iii. Execute the bootstrap script.
 
    ```bash
    ./bootstrap.sh bootstrapv2
