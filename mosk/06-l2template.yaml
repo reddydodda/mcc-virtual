@@ -61,7 +61,7 @@ spec:
           - {{ ip "k8s-lcm:k8s-lcm-nics" }}
         routes:
           - to: 0.0.0.0/0
-            via: {{ gateway_from_subnet "k8s-ext-nics" }}
+            via: {{ gateway_from_subnet "k8s-lcm-nics" }}
         nameservers:
           addresses: {{ nameservers_from_subnet "k8s-lcm-nics" }}
       k8s-others:
