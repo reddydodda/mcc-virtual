@@ -22,6 +22,8 @@ spec:
           size: 200Mi
         - name: config-2
           size: 64Mi
+        - name: lvm_lvp_part
+          size: 5Gi
         - name: lvm_root_part
           size: 0
     - device:
@@ -30,9 +32,6 @@ spec:
         wipeDevice:
           eraseMetadata:
             enabled: true
-      partitions:
-        - name: lvm_lvp_part
-          size: 0
     - device:
         byName: /dev/sdc
         minSize: 30Gi

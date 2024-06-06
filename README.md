@@ -9,7 +9,7 @@ This guide provides step-by-step instructions for setting up a bare metal server
   - 32 cores
   - 1 TB of storage
 
-## Steps
+## Steps for deploying MCC
 
 ### 1. Run the VBMC Script
 
@@ -110,6 +110,55 @@ sudo reboot
  ```bash
  ./bin/kind delete cluster -n clusterapi
  ```
+
+## Create MOSK Cluster
+
+### 1. Create mosk cluster templates
+
+ ```bash
+ ./04-mosk-setup.sh
+ ```
+
+### 2. Check BMH and Machine Status
+
+ ```bash
+ watch "kubectl get bmh -o wide -A ; kubectl get lcmmachines -o wide -A"
+ ```
+
+### 3. Check KAAS Ceph Cluster ( KCC ) Status
+
+ ```bash
+ kubectl get kcc -o wide -A
+ ```
+
+### 4. Once Nodes and KCC are in Ready state generate MOSK cluster Kubeconfig 
+
+ ```bash
+ kubectl -n {NAMESPACE}  get secrets {NAMESPACE}-kubeconfig -o jsonpath='{.data.admin\.conf}' | base64 -d | sed 's/:5443/:443/g' | tee mosk.kubeconfig
+ ```
+
+### 5. Check for ceph keyrings and ceph health before applying MOSK OSDPL templates
+
+ ```bash
+ kubectl -n openstack-ceph-shared get secrets openstack-ceph-keys -o yaml
+
+ kubectl -n rook-ceph exec -it deploy/rook-ceph-tools -- ceph -s
+ ```
+
+### 6. Apply OSDPL secrets and OSDPL object
+
+ ```bash
+ kubectl apply -f mosk/10-osdpl/osdpl-secret.yaml
+
+ kubectl apply -f mosk/10-osdpl/osdpl.yaml
+ ```
+
+### 7. Check for OSDPL status 
+
+ ```bash
+ kubectl -n openstack get osdplst -o wide
+ ```
+
 
 ### Cleanup
 

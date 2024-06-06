@@ -17,7 +17,7 @@ create_vm() {
     --name=${vm_name} \
     --os-type=linux \
     --os-variant=ubuntu20.04 \
-    --ram=24576 \
+    --ram=32768 \
     --vcpus=8 \
     --disk size=100,path=/var/lib/libvirt/images_new/${vm_name}-disk1.qcow2,bus=sata,format=qcow2 \
     --disk size=50,path=/var/lib/libvirt/images_new/${vm_name}-disk2.qcow2,bus=sata,format=qcow2 \
@@ -41,8 +41,8 @@ create_vm_with_extra_disks() {
     --name=${vm_name} \
     --os-type=linux \
     --os-variant=ubuntu20.04 \
-    --ram=32768 \
-    --vcpus=8 \
+    --ram=49152 \
+    --vcpus=12 \
     --disk size=100,path=/var/lib/libvirt/images_new/${vm_name}-disk1.qcow2,bus=sata,format=qcow2 \
     --disk size=50,path=/var/lib/libvirt/images_new/${vm_name}-disk2.qcow2,bus=sata,format=qcow2 \
     --disk size=50,path=/var/lib/libvirt/images_new/${vm_name}-disk3.qcow2,bus=sata,format=qcow2 \

@@ -1,8 +1,0 @@
-apiVersion: kaas.mirantis.com/v1alpha1
-kind: PublicKey
-metadata:
-  name: bootstrap-key
-  namespace: SET_NAMESPACE
-spec:
-  publicKey: |
-    SSH_KEY

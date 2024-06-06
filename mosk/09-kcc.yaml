@@ -93,43 +93,55 @@ spec:
         - config:
             deviceClass: hdd
             osdsPerDevice: "1"
-          name: vdc
+          name: sdb
         - config:
             deviceClass: hdd
             osdsPerDevice: "1"
-          name: vdd
+          name: sdc
         - config:
             deviceClass: hdd
             osdsPerDevice: "1"
-          name: vde
+          name: sdd
+        - config:
+            deviceClass: hdd
+            osdsPerDevice: "1"
+          name: sde
       mosk-cmp-02:
         storageDevices:
         - config:
             deviceClass: hdd
             osdsPerDevice: "1"
-          name: vdc
+          name: sdb
         - config:
             deviceClass: hdd
             osdsPerDevice: "1"
-          name: vdd
+          name: sdc
         - config:
             deviceClass: hdd
             osdsPerDevice: "1"
-          name: vde
+          name: sdd
+        - config:
+            deviceClass: hdd
+            osdsPerDevice: "1"
+          name: sde
       mosk-cmp-03:
         storageDevices:
         - config:
             deviceClass: hdd
             osdsPerDevice: "1"
-          name: vdc
+          name: sdb
         - config:
             deviceClass: hdd
             osdsPerDevice: "1"
-          name: vdd
+          name: sdc
         - config:
             deviceClass: hdd
             osdsPerDevice: "1"
-          name: vde
+          name: sdd
+        - config:
+            deviceClass: hdd
+            osdsPerDevice: "1"
+          name: sde
       mosk-ctl-01:
         roles:
         - mgr
