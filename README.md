@@ -87,7 +87,7 @@ sudo reboot
   BMH node status should be `available` before approving bootstrap
 
   ```bash
-  ./container-cloud bootstrap approve all
+  ./kaas-bootstrap/container-cloud bootstrap approve all
   ```
 
 ### 10. Check Machine Status
@@ -102,13 +102,13 @@ sudo reboot
   i. Once lcmmachine is in Ready state, generate the kubeconfig file for the MCC cluster.
 
   ```bash
-  ./container-cloud get cluster-kubeconfig --kubeconfig ~/.kube/kind-config-clusterapi --cluster-name kaas-mgmt
+  ../kaas-bootstrap/container-cloud get cluster-kubeconfig --kubeconfig ~/.kube/kind-config-clusterapi --cluster-name kaas-mgmt
   ```
   
   ii. Generate Keycloak credentials.
 
   ```bash
-  ./container-cloud get keycloak-creds --mgmt-kubeconfig kubeconfig
+  ../kaas-bootstrap/container-cloud get keycloak-creds --mgmt-kubeconfig kubeconfig
   ```
 
 ### 12.  Delete the Cluster (Optional)
