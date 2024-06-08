@@ -47,7 +47,6 @@ create_vm_with_extra_disks() {
     --disk size=50,path=/var/lib/libvirt/images_new/${vm_name}-disk2.qcow2,bus=sata,format=qcow2 \
     --disk size=50,path=/var/lib/libvirt/images_new/${vm_name}-disk3.qcow2,bus=sata,format=qcow2 \
     --disk size=50,path=/var/lib/libvirt/images_new/${vm_name}-disk4.qcow2,bus=sata,format=qcow2 \
-    --disk size=50,path=/var/lib/libvirt/images_new/${vm_name}-disk5.qcow2,bus=sata,format=qcow2 \
     --network bridge=br-pxe,model=virtio,mac=${mac} \
     --network bridge=br-lcm,model=virtio \
     --network bridge=br-others,model=virtio \
