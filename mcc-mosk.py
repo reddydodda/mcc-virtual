@@ -100,6 +100,9 @@ else:
 # Wait for Cluster to be Ready
 wait_for_condition("kubectl get cluster -o wide", "READY", "true")
 
+# Delete BootStrap Cluster
+run_command("./kaas-bootstrap/bin/kind delete cluster -n clusterapi")
+
 # Step 11: Run 04-mosk-setup.sh
 run_command("./04-mosk-setup.sh")
 
