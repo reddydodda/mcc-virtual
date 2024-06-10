@@ -68,4 +68,4 @@ else
   echo "kubectl binary not found at ${SCRIPT_DIR}/kaas-bootstrap/bin/kubectl"
 fi
 
-echo "Bootstrap script completed successfully."
+echo "03-bootstrap-templates.sh completed successfully."
