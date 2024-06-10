@@ -40,6 +40,7 @@ replace_in_files "SET_MOSK_RELEASE" "$MOSK_RELEASE" "04-cluster.yaml"
 
 # Apply the Kubernetes configurations with a wait time of 30 seconds between each
 apply_kubectl() {
+  echo "Applying ${1} .."
   kubectl apply -f "$1"
   sleep 30
 }

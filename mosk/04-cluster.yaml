@@ -30,7 +30,7 @@ spec:
           values: {}
         - name: stacklight
           values:
-            clusterSize: tiny
+            clusterSize: small
             highAvailabilityEnabled: true
             ceph:
               enabled: true
