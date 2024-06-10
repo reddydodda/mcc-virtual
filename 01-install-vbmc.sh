@@ -134,4 +134,4 @@ fi
 # Add public key to authorized_keys
 cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
 
-echo "Script completed successfully."
+echo "01-install-vbmc.sh completed successfully."

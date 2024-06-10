@@ -118,7 +118,7 @@ create_vms() {
     ipmitool -I lanplus -H ${KVM_NODE_IP} -U root -P admin123 -p 625${i} power off
   done
 
-  echo "VM creation completed successfully."
+  echo "02-virt-install.sh --create completed successfully."
 }
 
 # Clean up VMs
@@ -141,7 +141,7 @@ cleanup_vms() {
     delete_vm ${vm_name}
   done
 
-  echo "Cleanup completed successfully."
+  echo "02-virt-install.sh --cleanup completed successfully."
 }
 
 # Parse arguments

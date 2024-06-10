@@ -15,7 +15,7 @@ fi
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Export Kubeconfig
-export KUBECONFIG=${SCRIPT_DIR}/kaas-bootstrap/kubeconfig-kaas-mgmt
+export KUBECONFIG=${SCRIPT_DIR}/kubeconfig-kaas-mgmt
 
 # Read KVM_NODE_IP from hosts.txt file
 if [ ! -f "${SCRIPT_DIR}/hosts.txt" ]; then
@@ -59,4 +59,4 @@ apply_kubectl "mosk/08-machine/01-machine-ctl.yaml"
 apply_kubectl "mosk/08-machine/02-machine-cmp.yaml"
 apply_kubectl "mosk/09-kcc.yaml"
 
-echo "MOSK setup script completed successfully."
+echo "04-mosk-setup.sh completed successfully."
