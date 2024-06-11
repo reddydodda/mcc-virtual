@@ -1,15 +1,35 @@
-# KaaS Bootstrap Setup
+# MCC Bootstrap Setup
 
 This guide provides step-by-step instructions for setting up a bare metal server and bootstrapping a MCC environment.
 
 ## Prerequisites
 
-- A bare metal server with at least:
-  - 256 GB of memory
-  - 32 cores
-  - 1 TB of storage
+1. **Baremetal Server Requirements:**
+   - Minimum 256 GB memory
+   - Minimum 32 cores CPU
+   - Minimum 1 TB storage
 
-## Steps for deploying MCC
+2. **Operating System:**
+   - Ubuntu 20.04
+
+3. **Clone the Repository:**
+   ```bash
+   git clone http://github.com/reddydodda/mcc-virtual.git
+   cd mcc-virtual/
+   ```
+
+## Automated Deployment Script
+
+The Python script mcc-mosk.py will automates the entire deployment process of MCC and MOSK without any manual steps.
+
+### Steps to Use `mcc-mosk.py`:
+
+```bash
+python3 mcc-mosk.py
+```
+
+
+## Manual Steps for deploying MCC
 
 ### 1. Run the VBMC Script
 

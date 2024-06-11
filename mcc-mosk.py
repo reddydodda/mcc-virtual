@@ -76,7 +76,7 @@ run_command("./kaas-bootstrap/container-cloud bootstrap approve all")
 
 # Step 9: Check bmh and lcmmachines status
 wait_for_condition("kubectl get bmh -o wide", "STATE", "provisioned")
-time.sleep(30)
+time.sleep(180)
 wait_for_condition("kubectl get lcmmachines -o wide", "STATE", "Ready")
 
 # Step 10: Generate kubeconfig and keycloak creds
@@ -108,9 +108,9 @@ run_command("./04-mosk-setup.sh")
 
 # Step 12: Wait for BMH and lcmmachines in mosk namespace to be Ready
 wait_for_condition("kubectl get bmh -o wide -n mosk", "STATE", "provisioned")
-time.sleep(30)
+time.sleep(180)
 wait_for_condition("kubectl get lcmmachines -o wide -n mosk", "STATE", "Ready")
-time.sleep(30)
+time.sleep(180)
 
 # Step 13: Check kcc status
 wait_for_condition("kubectl get kcc -o wide -n mosk", "HEALTH STATE", "Ready")
