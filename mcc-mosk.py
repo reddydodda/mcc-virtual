@@ -112,8 +112,11 @@ time.sleep(180)
 wait_for_condition("kubectl get lcmmachines -o wide -n mosk", "STATE", "Ready")
 time.sleep(180)
 
+# Wait for Cluster to be Ready
+wait_for_condition("kubectl get cluster -o wide -n mosk", "READY", "true")
+
 # Step 13: Check kcc status
-wait_for_condition("kubectl get kcc -o wide -n mosk", "HEALTH STATE", "Ready")
+#wait_for_condition("kubectl get kcc -o wide -n mosk", "VALIDATION", "Ready")
 
 # Step 14: Generate mosk kubeconfig
 namespace = "mosk"
@@ -136,7 +139,7 @@ run_command("kubectl apply -f mosk/10-osdpl/osdpl.yaml")
 
 # Step 17: Check osdpl status
 time.sleep(30)
-wait_for_condition("kubectl -n openstack get osdplst -o wide", "READY", "Healthy")
+wait_for_condition("kubectl -n openstack get osdplst -o wide", "CONTROLLER", "APPLIED")
 
 # Export KUBECONFIG environment variable
 os.environ["KUBECONFIG"] = kubeconfig_file
