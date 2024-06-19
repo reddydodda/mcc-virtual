@@ -1,15 +1,5 @@
 #!/bin/bash
 
-# Set the necessary variables
-MCC_CLUSTER_RELEASE="mke-16-1-4-3-7-8"
-MCC_KAAS_RELEASE="kaas-2-26-4"
-
-# Check if MCC_RELEASE is set
-if [[ -z "$MCC_CLUSTER_RELEASE" || -z "$MCC_KAAS_RELEASE"  ]]; then
-  echo "Error: MCC_RELEASE is not set."
-  exit 1
-fi
-
 # Get the directory where the script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
@@ -38,6 +28,26 @@ export KAAS_BM_PXE_BRIDGE="br-pxe"
 EOF
 else
   echo "bootstrap.env file not found at ${BOOTSTRAP_ENV_FILE}"
+fi
+
+# Find the latest YAML file in the kaas-bootstrap/releases/kaas/ directory
+LATEST_YAML=$(ls -t kaas-bootstrap/releases/kaas/*.yaml | head -n 1)
+
+# Convert the LATEST_YAML file name to kaas-2-26-6 format
+LATEST_VERSION=$(basename "$LATEST_YAML" .yaml)
+MCC_KAAS_RELEASE="kaas-${LATEST_VERSION//./-}"
+
+# Extract MCC_CLUSTER_RELEASE values
+MCC_CLUSTER_RELEASE=$(grep 'clusterRelease' "$LATEST_YAML" | awk '{print $2}')
+
+# Print the extracted values
+echo "MCC_KAAS_RELEASE: $MCC_KAAS_RELEASE"
+echo "MCC_CLUSTER_RELEASE: $MCC_CLUSTER_RELEASE"
+
+# Check if MCC_RELEASE is set
+if [[ -z "$MCC_CLUSTER_RELEASE" || -z "$MCC_KAAS_RELEASE"  ]]; then
+  echo "Error: MCC_RELEASE is not set."
+  exit 1
 fi
 
 # Step 3: Update SET_KVM_ADDRESS in baremetalhosts.yaml.template
