@@ -65,6 +65,7 @@ run_command("./kaas-bootstrap/bin/kubectl create -f mcc/baremetalhosts.yaml.temp
 run_command("./kaas-bootstrap/bin/kubectl create -f mcc/ipam-objects.yaml.template")
 run_command("./kaas-bootstrap/bin/kubectl create -f mcc/metallbconfig.yaml.template")
 run_command("./kaas-bootstrap/bin/kubectl create -f mcc/machines.yaml.template")
+run_command("./kaas-bootstrap/bin/kubectl create -f mcc/ipam-objects.yaml.template")
 
 # Step 7: Check bootstrapregions status
 wait_for_condition("kubectl get bootstrapregions -o wide", "READY", "true")
