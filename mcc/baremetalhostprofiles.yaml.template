@@ -26,6 +26,7 @@ spec:
         # Deprecated. 'wipe' field, if set to 'true', forces the Container Cloud
         # bare metal provisioning system to erase the contents of the device before using it.
         #wipe: true
+        workBy: by_id,by_wwn,by_path,by_name
         wipeDevice:
           eraseMetadata:
             enabled: true
@@ -70,6 +71,7 @@ spec:
         # Deprecated. 'wipe' field, if set to 'true', forces the Container Cloud
         # bare metal provisioning system to erase the contents of the  device before using it.
         #wipe: true
+        workBy: by_id,by_wwn,by_path,by_name
         wipeDevice:
           eraseMetadata:
             enabled: true
