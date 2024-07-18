@@ -32,24 +32,6 @@ spec:
   includeRanges:
     - 192.168.123.101-192.168.123.120
 ---
-apiVersion: "ipam.mirantis.com/v1alpha1"
-kind: Subnet
-metadata:
-  name: k8s-lcm-lb
-  namespace: SET_NAMESPACE
-  labels:
-    kaas.mirantis.com/provider: baremetal
-    kaas.mirantis.com/region: region-one
-    cluster.sigs.k8s.io/cluster-name: SET_NAMESPACE
-    ipam/SVC-MetalLB: "presents"
-    metallb/address-pool-auto-assign: "true"
-    metallb/address-pool-name: services
-    metallb/address-pool-protocol: layer2
-spec:
-  cidr: 192.168.123.0/24
-  includeRanges:
-    - 192.168.123.121-192.168.123.149
----
 apiVersion: ipam.mirantis.com/v1alpha1
 kind: Subnet
 metadata:

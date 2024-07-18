@@ -62,7 +62,6 @@ run_command("./kaas-bootstrap/bin/kubectl create -f mcc/serviceusers.yaml.templa
 run_command("./kaas-bootstrap/bin/kubectl create -f mcc/cluster.yaml.template")
 run_command("./kaas-bootstrap/bin/kubectl create -f mcc/baremetalhostprofiles.yaml.template")
 run_command("./kaas-bootstrap/bin/kubectl create -f mcc/baremetalhosts.yaml.template")
-run_command("./kaas-bootstrap/bin/kubectl create -f mcc/ipam-objects.yaml.template")
 run_command("./kaas-bootstrap/bin/kubectl create -f mcc/metallbconfig.yaml.template")
 run_command("./kaas-bootstrap/bin/kubectl create -f mcc/machines.yaml.template")
 run_command("./kaas-bootstrap/bin/kubectl create -f mcc/ipam-objects.yaml.template")

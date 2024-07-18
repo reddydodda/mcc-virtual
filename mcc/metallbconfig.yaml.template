@@ -1,12 +1,10 @@
 ---
 # MetalLBConfig object serves for monitoring of MetalLB address advertisement
-# configuration since MCC 2.24. It can contain a link to MetalLBConfigTemplate
-# or full definition of MetalLB API objects.
-# The example below consumes "kaas-mgmt-metallb" MetalLBConfigTemplate object.
+# configuration since MCC 2.24. It contains a full definition of MetalLB API objects.
 # Operator can monitor the status of MetalLB configuration of the target
 # cluster using "status" of MetalLBConfig.
 # See MCC documentation for detailed description of MetalLB configuration using
-# MetalLBConfig and MetalLBConfigTemplate objects.
+# MetalLBConfig object.
 apiVersion: kaas.mirantis.com/v1alpha1
 kind: MetalLBConfig
 metadata:
@@ -16,4 +14,29 @@ metadata:
   name: kaas-mgmt-metallb
   namespace: default
 spec:
-  templateName: kaas-mgmt-metallb
+  ipAddressPools:
+  - name: default
+    spec:
+      addresses:
+      - 192.168.123.16-192.168.123.29
+      autoAssign: true
+      avoidBuggyIPs: false
+  - name: services-pxe
+    spec:
+      addresses:
+      - 192.168.122.11-192.168.122.19
+      autoAssign: false
+      avoidBuggyIPs: false
+  l2Advertisements:
+  - name: default
+    spec:
+      interfaces:
+      - k8s-lcm
+      ipAddressPools:
+      - default
+  - name: pxe
+    spec:
+      interfaces:
+      - k8s-pxe
+      ipAddressPools:
+      - services-pxe
