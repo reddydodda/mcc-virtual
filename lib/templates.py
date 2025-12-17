@@ -271,6 +271,7 @@ class TemplateGenerator:
             "ceph_osd_devices": self.config.ceph_osd_devices,
             "ceph_pool_replication_size": self.config.get_raw("storage.ceph.pool_replication_size", 2),
             "ceph_rgw_instances": self.config.get_raw("storage.ceph.rgw_instances", 3),
+            "ceph_rgw_store_name": self.config.get_raw("storage.ceph.rgw_store_name", "rgw-store"),
             "ceph_public_domain": self.config.get_raw("storage.ceph.public_domain", "ceph.it.just.works"),
             "ceph_pools": [
                 {"name": pool.name, "role": pool.role, "default": pool.default, "size": pool.size}
@@ -395,7 +396,7 @@ class TemplateGenerator:
             ("mosk/bmhp-cmp.yaml.j2", "05-profiles/02-bmhp-cmp.yaml"),
             ("mosk/machines-control.yaml.j2", "06-machines/01-machines-control.yaml"),
             ("mosk/machines-compute.yaml.j2", "06-machines/02-machines-compute.yaml"),
-            ("mosk/kcc.yaml.j2", "07-ceph/kcc.yaml"),
+            ("mosk/miraceph.yaml.j2", "07-ceph/miraceph.yaml"),
             ("mosk/osdpl-secret.yaml.j2", "08-openstack/01-osdpl-secret.yaml"),
             ("mosk/osdpl.yaml.j2", "08-openstack/02-osdpl.yaml"),
         ]

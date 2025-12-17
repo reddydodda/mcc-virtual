@@ -30,4 +30,5 @@ spec:
   bmc:
     address: {{ kvm_node_ip }}:{{ node.vbmc_port }}
     credentialsName: ''
+    disableCertificateVerification: true
 {% endfor %}

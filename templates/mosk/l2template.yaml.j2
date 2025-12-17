@@ -6,6 +6,9 @@ kind: L2Template
 metadata:
   name: mosk-default
   namespace: {{ mosk_namespace }}
+  labels:
+    kaas.mirantis.com/provider: baremetal
+    cluster.sigs.k8s.io/cluster-name: {{ mosk_namespace }}
 spec:
   autoIfMappingPrio:
     - type: l2templatemapping

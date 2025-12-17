@@ -12,6 +12,23 @@ spec:
   size: {{ openstack_size }}
   internal_domain_name: cluster.local
   public_domain_name: {{ osdpl_public_domain }}
+  ssl:
+    public_endpoints:
+      ca_cert:
+        value_from:
+          secret_key_ref:
+            name: openstack-ssl-secret
+            key: ca_cert
+      api_cert:
+        value_from:
+          secret_key_ref:
+            name: openstack-ssl-secret
+            key: api_cert
+      api_key:
+        value_from:
+          secret_key_ref:
+            name: openstack-ssl-secret
+            key: api_key
   features:
     services:
 {% for service in openstack_services | default(['barbican', 'cinder', 'glance', 'heat', 'horizon', 'keystone', 'neutron', 'nova', 'octavia', 'placement', 'tempest']) %}
@@ -20,6 +37,7 @@ spec:
     neutron:
       dvr: {{ openstack_dvr_enabled | default(true) | lower }}
       backend: ml2/ovn
+      tunnel_interface: {{ neutron_tunnel_interface | default('k8s-others') }}
 {% if openstack_baremetal_enabled | default(false) %}
     ironic:
       enabled: true
@@ -28,11 +46,6 @@ spec:
       images:
         backend: ceph
       live_migration_interface: {{ nova_live_migration_interface | default('k8s-lcm') }}
-    ssl:
-      public_endpoints:
-        api_cert: openstack-ssl-certificate
-      internal_endpoints:
-        api_cert: openstack-ssl-certificate
     database:
       backup:
         enabled: {{ openstack_db_backup_enabled | default(true) | lower }}
@@ -45,9 +58,6 @@ spec:
               DEFAULT:
                 dns_domain: {{ neutron_dns_domain | default('openstacklocal') }}
                 global_physnet_mtu: {{ neutron_global_mtu | default(1500) }}
-{% for dns in dns_servers %}
-              dns_nameservers: {{ dns }}
-{% endfor %}
             plugins:
               ml2_conf:
                 ml2_type_flat:
