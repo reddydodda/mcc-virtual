@@ -624,6 +624,29 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
             )
             self.log.progress("License applied via kubectl")
 
+    def _is_mgmt_cluster_accessible(self, kubeconfig_path: str) -> bool:
+        """Check if management cluster is accessible and ready."""
+        try:
+            if not Path(kubeconfig_path).exists():
+                return False
+            output = run_command_output(
+                ["kubectl", "--kubeconfig", kubeconfig_path, "get", "cluster", "-o", "json"],
+                timeout=30,
+            )
+            data = json.loads(output)
+            items = data.get("items", [data]) if "items" in data else [data]
+            for item in items:
+                # Check status.providerStatus.ready (MCC cluster structure)
+                provider_status = item.get("status", {}).get("providerStatus", {})
+                if provider_status.get("ready") is True:
+                    return True
+                # Fallback: check status.ready for other cluster types
+                if item.get("status", {}).get("ready") is True:
+                    return True
+            return False
+        except Exception:
+            return False
+
     def _run_mcc_deployment(self) -> None:
         """Deploy MCC management cluster."""
         self.log.phase_start("mcc_deployment", "Deploying MCC management cluster")
@@ -631,10 +654,52 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
 
         try:
             base_dir = Path(self.config.base_dir)
+            bootstrap_dir = base_dir / "kaas-bootstrap"
             kind_kubeconfig = self.state.get_kubeconfig("kind")
 
             if not kind_kubeconfig:
                 kind_kubeconfig = str(Path.home() / ".kube" / "kind-config-clusterapi")
+
+            # Check if management cluster is already accessible (resume scenario)
+            mgmt_kubeconfig = base_dir / f"kubeconfig-{self.config.mcc_cluster_name}"
+            if self._is_mgmt_cluster_accessible(str(mgmt_kubeconfig)):
+                self.log.progress("Management cluster already accessible - skipping Kind-based operations")
+                self.state.set_kubeconfig("mcc", str(mgmt_kubeconfig))
+
+                # Skip directly to post-pivot verification
+                self.log.progress("Verifying management cluster is ready...")
+                self._wait_for_resource_json(
+                    "cluster", "status.providerStatus.ready", True,
+                    kubeconfig=str(mgmt_kubeconfig),
+                    timeout=self.config.timeout_cluster_ready,
+                )
+
+                # Get Keycloak credentials if not already done
+                keycloak_file = base_dir / "keycloak.yaml"
+                if not keycloak_file.exists():
+                    self.log.progress("Getting Keycloak credentials")
+                    keycloak_output = run_command_output(
+                        ["./container-cloud", "get", "keycloak-creds",
+                         "--mgmt-kubeconfig", str(mgmt_kubeconfig)],
+                        cwd=str(bootstrap_dir),
+                        timeout=120,
+                    )
+                    keycloak_file.write_text(keycloak_output)
+
+                self.state.set_phase(DeploymentPhase.MCC_READY)
+
+                # Clean up Kind cluster if it still exists
+                kind_bin = bootstrap_dir / "bin" / "kind"
+                if kind_bin.exists():
+                    self.log.progress("Cleaning up Kind bootstrap cluster if present")
+                    run_command(
+                        [str(kind_bin), "delete", "cluster", "-n", "clusterapi"],
+                        check=False,
+                        timeout=120,
+                    )
+
+                self.log.phase_complete("mcc_deployment")
+                return
 
             templates = [
                 "mcc/bootstrapregion.yaml.template",
@@ -675,7 +740,6 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
             )
 
             self.log.progress("Approving bootstrap changes")
-            bootstrap_dir = base_dir / "kaas-bootstrap"
             run_command(
                 ["./container-cloud", "bootstrap", "approve", "all"],
                 cwd=str(bootstrap_dir),
@@ -708,12 +772,11 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
                 timeout=120,
             )
 
-            mgmt_kubeconfig = base_dir / f"kubeconfig-{self.config.mcc_cluster_name}"
             self.state.set_kubeconfig("mcc", str(mgmt_kubeconfig))
 
             self.log.progress("Waiting for cluster to be ready...")
             self._wait_for_resource_json(
-                "cluster", "status.ready", True,
+                "cluster", "status.providerStatus.ready", True,
                 kubeconfig=kind_kubeconfig,
                 timeout=self.config.timeout_cluster_ready,
             )
@@ -722,7 +785,7 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
 
             self.log.progress("Verifying management cluster is accessible...")
             self._wait_for_resource_json(
-                "cluster", "status.ready", True,
+                "cluster", "status.providerStatus.ready", True,
                 kubeconfig=str(mgmt_kubeconfig),
                 timeout=6000,
             )
@@ -908,7 +971,7 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
             )
 
             self._wait_for_resource_json(
-                "cluster", "status.ready", True,
+                "cluster", "status.providerStatus.ready", True,
                 kubeconfig=mgmt_kubeconfig,
                 namespace=namespace,
                 timeout=self.config.timeout_cluster_ready,
@@ -1409,7 +1472,7 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
         )
 
         self._wait_for_resource_json(
-            "cluster", "status.ready", True,
+            "cluster", "status.providerStatus.ready", True,
             kubeconfig=mgmt_kubeconfig,
             timeout=self.config.timeout_cluster_ready,
         )
@@ -1470,7 +1533,7 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
         )
 
         self._wait_for_resource_json(
-            "cluster", "status.ready", True,
+            "cluster", "status.providerStatus.ready", True,
             kubeconfig=mgmt_kubeconfig,
             namespace=namespace,
             timeout=self.config.timeout_cluster_ready,
