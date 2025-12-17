@@ -661,8 +661,28 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
                 kind_kubeconfig = str(Path.home() / ".kube" / "kind-config-clusterapi")
 
             # Check if management cluster is already accessible (resume scenario)
-            mgmt_kubeconfig = base_dir / f"kubeconfig-{self.config.mcc_cluster_name}"
-            if self._is_mgmt_cluster_accessible(str(mgmt_kubeconfig)):
+            # Try multiple possible kubeconfig locations
+            possible_kubeconfigs = [
+                base_dir / f"kubeconfig-{self.config.mcc_cluster_name}",
+                Path.home() / f"kubeconfig-{self.config.mcc_cluster_name}",
+                Path(f"/root/kubeconfig-{self.config.mcc_cluster_name}"),
+                base_dir / "kaas-bootstrap" / f"kubeconfig-{self.config.mcc_cluster_name}",
+            ]
+
+            # Also check state for previously saved kubeconfig
+            saved_kubeconfig = self.state.get_kubeconfig("mcc")
+            if saved_kubeconfig:
+                possible_kubeconfigs.insert(0, Path(saved_kubeconfig))
+
+            mgmt_kubeconfig = None
+            for kc_path in possible_kubeconfigs:
+                self.log.progress(f"Checking for kubeconfig at: {kc_path}")
+                if self._is_mgmt_cluster_accessible(str(kc_path)):
+                    mgmt_kubeconfig = kc_path
+                    self.log.progress(f"Found accessible management cluster kubeconfig: {kc_path}")
+                    break
+
+            if mgmt_kubeconfig and self._is_mgmt_cluster_accessible(str(mgmt_kubeconfig)):
                 self.log.progress("Management cluster already accessible - skipping Kind-based operations")
                 self.state.set_kubeconfig("mcc", str(mgmt_kubeconfig))
 
@@ -700,6 +720,10 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
 
                 self.log.phase_complete("mcc_deployment")
                 return
+
+            # If we didn't find an accessible mgmt kubeconfig, set the expected path for later
+            if mgmt_kubeconfig is None:
+                mgmt_kubeconfig = base_dir / f"kubeconfig-{self.config.mcc_cluster_name}"
 
             templates = [
                 "mcc/bootstrapregion.yaml.template",
@@ -865,10 +889,56 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
         raise RuntimeError(f"LCM machines did not stabilize within {timeout} seconds")
 
     def _wait_for_pivot_completion(self, kubeconfig: str, timeout: int = 3600) -> None:
-        """Wait for the bootstrap pivot to complete with full verification."""
+        """Wait for the bootstrap pivot to complete with full verification.
+
+        Checks multiple sources for pivot completion:
+        1. Management cluster's Cluster object (status.providerStatus.bootstrapStatus.pivotDone)
+        2. Kind cluster's BootstrapRegion (status.pivotDone)
+
+        This handles resume scenarios where the Kind cluster may be gone but the
+        management cluster is already operational.
+        """
         self.log.progress("Waiting for bootstrap pivot to complete...")
 
+        # First, check if management cluster already shows pivot complete
+        # This handles resume scenarios where Kind might be gone
+        base_dir = Path(self.config.base_dir)
+        mgmt_kubeconfig = base_dir / f"kubeconfig-{self.config.mcc_cluster_name}"
+
+        if mgmt_kubeconfig.exists():
+            try:
+                output = run_command_output(
+                    ["kubectl", "--kubeconfig", str(mgmt_kubeconfig), "get", "cluster", "-o", "json"],
+                    timeout=30,
+                )
+                data = json.loads(output)
+                items = data.get("items", [data]) if "items" in data else [data]
+                for item in items:
+                    bootstrap_status = item.get("status", {}).get("providerStatus", {}).get("bootstrapStatus", {})
+                    if bootstrap_status.get("pivotDone") is True:
+                        self.log.progress("Pivot already completed (verified from management cluster)")
+                        return
+            except Exception as e:
+                self.log.progress(f"Could not check management cluster pivot status: {e}")
+
         def check_pivot() -> Tuple[bool, str]:
+            # First try management cluster (preferred source after pivot)
+            if mgmt_kubeconfig.exists():
+                try:
+                    output = run_command_output(
+                        ["kubectl", "--kubeconfig", str(mgmt_kubeconfig), "get", "cluster", "-o", "json"],
+                        timeout=30,
+                    )
+                    data = json.loads(output)
+                    items = data.get("items", [data]) if "items" in data else [data]
+                    for item in items:
+                        bootstrap_status = item.get("status", {}).get("providerStatus", {}).get("bootstrapStatus", {})
+                        if bootstrap_status.get("pivotDone") is True:
+                            return True, "Pivot completed (from management cluster)"
+                except Exception:
+                    pass  # Fall through to Kind check
+
+            # Fall back to Kind cluster bootstrapregion check
             try:
                 output = run_command_output(
                     ["kubectl", "--kubeconfig", kubeconfig, "get", "bootstrapregion", "-o", "json"],
