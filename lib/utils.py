@@ -471,14 +471,19 @@ def kubectl_command(
     Returns:
         Command output
     """
-    cmd = "kubectl"
-    if kubeconfig:
-        cmd = f"KUBECONFIG={kubeconfig} {cmd}"
+    # Build command as list to prevent command injection
+    cmd = ["kubectl"]
     if namespace:
-        cmd = f"{cmd} -n {namespace}"
-    cmd = f"{cmd} {command}"
+        cmd.extend(["-n", namespace])
+    # Split command string into args (simple split, assumes no quoted args with spaces)
+    cmd.extend(command.split())
 
-    return run_command_output(cmd, timeout=timeout)
+    # Pass kubeconfig via environment variable instead of shell interpolation
+    env = None
+    if kubeconfig:
+        env = {"KUBECONFIG": kubeconfig}
+
+    return run_command_output(cmd, timeout=timeout, env=env)
 
 
 def kubectl_apply(

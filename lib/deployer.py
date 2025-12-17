@@ -7,7 +7,6 @@ Main orchestrator for MCC/MOSK deployment with resume capability.
 import json
 import os
 import re
-import shlex
 import shutil
 import time
 from pathlib import Path
@@ -144,7 +143,8 @@ class Deployer:
     def _run_infrastructure(self) -> None:
         """Run infrastructure setup."""
         current_phase = self.state.get_phase()
-        if current_phase > DeploymentPhase.INFRASTRUCTURE_SETUP:
+        # Skip if we're past the VM_CREATION phase (infrastructure is complete)
+        if current_phase >= DeploymentPhase.VM_CREATION:
             self.log.step_skipped("infrastructure", "Already completed")
             return
         self.infrastructure.setup_all()
@@ -152,7 +152,8 @@ class Deployer:
     def _run_vm_creation(self) -> None:
         """Run VM creation."""
         current_phase = self.state.get_phase()
-        if current_phase > DeploymentPhase.VM_CREATION:
+        # Skip if we're past the BOOTSTRAP_DOWNLOAD phase (VMs are created)
+        if current_phase >= DeploymentPhase.BOOTSTRAP_DOWNLOAD:
             self.log.step_skipped("vm_creation", "Already completed")
             return
         self.vm_manager.create_all_vms()
@@ -699,7 +700,6 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
             )
 
             self.log.progress("Generating management cluster kubeconfig")
-            cluster_name = shlex.quote(self.config.mcc_cluster_name)
             run_command(
                 ["./container-cloud", "get", "cluster-kubeconfig",
                  "--kubeconfig", kind_kubeconfig,

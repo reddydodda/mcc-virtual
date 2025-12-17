@@ -6,6 +6,7 @@ and other infrastructure prerequisites.
 """
 
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -359,6 +360,12 @@ class InfrastructureManager:
                 return
 
             disk = output.split()[0]
+
+            # Validate disk name to prevent command injection
+            # Valid disk names: sda, nvme0n1, vda, xvda, etc.
+            if not re.match(r'^[a-zA-Z0-9_-]+$', disk):
+                raise ValueError(f"Invalid disk name format: {disk}")
+
             self.log.progress(f"Found disk: /dev/{disk}")
 
             # Check if disk needs formatting

@@ -217,7 +217,10 @@ class StateManager:
             # Keep only last 10 backups
             backups = sorted(self.state_file.parent.glob("*.backup.json"))
             for old_backup in backups[:-10]:
-                old_backup.unlink()
+                try:
+                    old_backup.unlink()
+                except FileNotFoundError:
+                    pass  # Already deleted by another process
 
         with open(self.state_file, 'w') as f:
             json.dump(asdict(self._state), f, indent=2)

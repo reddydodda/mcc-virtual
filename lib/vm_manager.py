@@ -8,7 +8,7 @@ Supports configurable compute node counts.
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from .config import Config, VMTopology
 from .logger import DeploymentLogger
@@ -31,7 +31,7 @@ class VMDefinition:
     vbmc_port: int
     ram_mb: int
     vcpus: int
-    disks: List[Dict[str, any]]  # List of disk definitions
+    disks: List[Dict[str, Any]]  # List of disk definitions
     role: str  # mcc, mosk-ctl, mosk-cmp
     index: int
 
@@ -402,15 +402,102 @@ class VMManager:
             raise
 
     def cleanup_all_vms(self) -> None:
-        """Clean up all VMs."""
+        """Clean up all VMs and vBMC entries."""
         self.log.phase_start("vm_cleanup", "Cleaning up virtual machines")
 
-        vms = self.generate_vm_definitions()
+        # First, clean up ALL vBMC entries matching our patterns
+        self._cleanup_all_vbmc()
 
+        # Clean up ALL VMs matching our patterns (including old naming)
+        self._cleanup_all_matching_vms()
+
+        # Also clean up VMs from current definitions (in case naming changed)
+        vms = self.generate_vm_definitions()
         for vm in vms:
             self._cleanup_vm(vm)
 
         self.log.phase_complete("vm_cleanup")
+
+    def _find_vbmc_binary(self) -> Optional[str]:
+        """Find vBMC binary path."""
+        # Check common paths
+        for path in ["/opt/vbmc/bin/vbmc", "/usr/local/bin/vbmc", "/usr/bin/vbmc"]:
+            if os.path.exists(path):
+                return path
+        # Try which
+        try:
+            return run_command_output("which vbmc", timeout=10).strip()
+        except Exception:
+            return None
+
+    def _cleanup_all_vbmc(self) -> None:
+        """Clean up all vBMC entries matching our VM patterns."""
+        vbmc_bin = self._find_vbmc_binary()
+        if not vbmc_bin:
+            self.log.progress("vBMC not found, skipping vBMC cleanup")
+            return
+
+        self.log.progress("Cleaning up all vBMC entries")
+
+        try:
+            # Get list of all vBMC entries
+            output = run_command_output(f"sudo {vbmc_bin} list", timeout=30)
+            lines = output.strip().split("\n")
+
+            # Parse vBMC list output (skip header lines)
+            for line in lines:
+                # Skip header/separator lines
+                if not line or line.startswith("+") or "Domain name" in line:
+                    continue
+
+                # Extract domain name from table format: | name | status | ...
+                parts = [p.strip() for p in line.split("|") if p.strip()]
+                if not parts:
+                    continue
+
+                domain_name = parts[0]
+
+                # Check if it matches our patterns (mcc-*, mosk-*)
+                if domain_name.startswith(("mcc-", "mosk-")):
+                    self.log.progress(f"Removing vBMC entry: {domain_name}")
+                    try:
+                        run_command(f"sudo {vbmc_bin} stop {domain_name}", check=False, timeout=30)
+                        run_command(f"sudo {vbmc_bin} delete {domain_name}", check=False, timeout=30)
+                    except Exception as e:
+                        self.log.warning(f"Failed to remove vBMC {domain_name}: {e}")
+
+        except Exception as e:
+            self.log.warning(f"Failed to list vBMC entries: {e}")
+
+    def _cleanup_all_matching_vms(self) -> None:
+        """Clean up all VMs matching our patterns."""
+        self.log.progress("Cleaning up all matching VMs")
+
+        try:
+            # Get list of all VMs
+            output = run_command_output("virsh list --all --name", timeout=30)
+            vm_names = [name.strip() for name in output.split("\n") if name.strip()]
+
+            for vm_name in vm_names:
+                # Check if it matches our patterns
+                if vm_name.startswith(("mcc-", "mosk-")):
+                    self.log.progress(f"Removing VM: {vm_name}")
+                    try:
+                        run_command(f"sudo virsh destroy {vm_name}", check=False, timeout=60)
+                        run_command(f"sudo virsh undefine {vm_name}", check=False, timeout=60)
+                    except Exception as e:
+                        self.log.warning(f"Failed to remove VM {vm_name}: {e}")
+
+                    # Try to clean up disk files
+                    for suffix in ["disk1", "disk2", "disk3", "osd1", "osd2", "osd3"]:
+                        disk_path = f"{self.config.images_path}/{vm_name}-{suffix}.qcow2"
+                        try:
+                            run_command(f"sudo rm -f {disk_path}", check=False, timeout=10)
+                        except Exception:
+                            pass
+
+        except Exception as e:
+            self.log.warning(f"Failed to list VMs: {e}")
 
     def _cleanup_vm(self, vm: VMDefinition) -> None:
         """
@@ -421,17 +508,20 @@ class VMManager:
         """
         self.log.progress(f"Cleaning up VM: {vm.name}")
 
+        vbmc_bin = self._find_vbmc_binary()
+
         # Stop and delete from vBMC
-        try:
-            run_command(f"sudo /opt/vbmc/bin/vbmc stop {vm.name}", check=False)
-            run_command(f"sudo /opt/vbmc/bin/vbmc delete {vm.name}", check=False)
-        except Exception:
-            pass
+        if vbmc_bin:
+            try:
+                run_command(f"sudo {vbmc_bin} stop {vm.name}", check=False, timeout=30)
+                run_command(f"sudo {vbmc_bin} delete {vm.name}", check=False, timeout=30)
+            except Exception:
+                pass
 
         # Destroy and undefine VM
         try:
-            run_command(f"sudo virsh destroy {vm.name}", check=False)
-            run_command(f"sudo virsh undefine {vm.name}", check=False)
+            run_command(f"sudo virsh destroy {vm.name}", check=False, timeout=60)
+            run_command(f"sudo virsh undefine {vm.name}", check=False, timeout=60)
         except Exception:
             pass
 
@@ -439,7 +529,7 @@ class VMManager:
         for disk in vm.disks:
             disk_path = f"{self.config.images_path}/{vm.name}-{disk['name']}.qcow2"
             try:
-                run_command(f"sudo rm -f {disk_path}", check=False)
+                run_command(f"sudo rm -f {disk_path}", check=False, timeout=10)
             except Exception:
                 pass
 
@@ -465,7 +555,7 @@ class VMManager:
 
         return status
 
-    def get_vm_info(self, role: Optional[str] = None) -> List[Dict[str, any]]:
+    def get_vm_info(self, role: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Get information about VMs.
 
