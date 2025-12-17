@@ -60,6 +60,10 @@ class InfrastructureManager:
         self.state.set_phase(DeploymentPhase.INFRASTRUCTURE_SETUP)
 
         try:
+            # Configure kernel modules and sysctl (must be early)
+            if self.state.should_run_step("configure_kernel"):
+                self._configure_kernel()
+
             # Install required packages
             if self.state.should_run_step("install_packages"):
                 self._install_packages()
@@ -96,6 +100,53 @@ class InfrastructureManager:
 
         except Exception as e:
             self.log.phase_failed("infrastructure_setup", str(e))
+            raise
+
+    def _configure_kernel(self) -> None:
+        """Configure kernel modules and sysctl settings required for Kubernetes networking."""
+        step_name = "configure_kernel"
+        self.log.step_start(step_name, "Configuring kernel modules and sysctl")
+        self.state.start_step(step_name)
+
+        try:
+            # Load required kernel modules
+            modules = ["br_netfilter", "overlay"]
+            for module in modules:
+                self.log.progress(f"Loading kernel module: {module}")
+                # Check if already loaded
+                result = run_command(f"grep -q {module} /proc/modules", check=False)
+                if result.returncode != 0:
+                    run_command(f"sudo modprobe {module}", timeout=30)
+
+            # Make modules persistent across reboots
+            modules_conf = "/etc/modules-load.d/k8s-mcc.conf"
+            self.log.progress("Making kernel modules persistent")
+            modules_content = "\n".join(modules) + "\n"
+            run_command(f"echo '{modules_content}' | sudo tee {modules_conf}", timeout=10)
+
+            # Configure sysctl settings for Kubernetes networking
+            sysctl_settings = {
+                "net.bridge.bridge-nf-call-iptables": "1",
+                "net.bridge.bridge-nf-call-ip6tables": "1",
+                "net.ipv4.ip_forward": "1",
+                "net.ipv4.conf.all.forwarding": "1",
+                "net.ipv6.conf.all.forwarding": "1",
+            }
+
+            self.log.progress("Configuring sysctl settings")
+            sysctl_conf = "/etc/sysctl.d/99-k8s-mcc.conf"
+            sysctl_content = "\n".join(f"{k} = {v}" for k, v in sysctl_settings.items()) + "\n"
+            run_command(f"echo '{sysctl_content}' | sudo tee {sysctl_conf}", timeout=10)
+
+            # Apply sysctl settings
+            run_command("sudo sysctl --system", timeout=30)
+
+            self.state.complete_step(step_name)
+            self.log.step_complete(step_name)
+
+        except Exception as e:
+            self.state.fail_step(step_name, str(e))
+            self.log.step_failed(step_name, str(e))
             raise
 
     def _install_packages(self) -> None:
