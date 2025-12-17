@@ -1200,8 +1200,28 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
         namespace: Optional[str] = None,
         timeout: int = 3600,
     ) -> None:
-        """Wait for all BMH resources to reach expected state."""
-        self.log.progress(f"Waiting for BMH state={expected_state}")
+        """Wait for all BMH resources to reach expected state or a more advanced state.
+
+        BMH state machine progression:
+        available -> provisioning -> provisioned
+
+        When resuming deployment, BMHs may have already progressed past the expected
+        state. This method accepts states that are at or beyond the expected state.
+        """
+        # Define BMH state progression order (earlier states first)
+        BMH_STATE_ORDER = ["available", "provisioning", "provisioned"]
+
+        def state_is_at_or_beyond(current_state: str, target_state: str) -> bool:
+            """Check if current_state is at or beyond target_state in the lifecycle."""
+            try:
+                current_idx = BMH_STATE_ORDER.index(current_state)
+                target_idx = BMH_STATE_ORDER.index(target_state)
+                return current_idx >= target_idx
+            except ValueError:
+                # Unknown state - only exact match
+                return current_state == target_state
+
+        self.log.progress(f"Waiting for BMH state>={expected_state}")
 
         def check() -> Tuple[bool, str]:
             cmd = ["kubectl", "--kubeconfig", kubeconfig]
@@ -1217,18 +1237,21 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
                 return False, "No BMH resources found"
 
             states = []
+            all_satisfied = True
             for item in items:
                 name = item.get("metadata", {}).get("name", "unknown")
                 state = item.get("status", {}).get("provisioning", {}).get("state", "unknown")
                 states.append(f"{name}={state}")
-                if state != expected_state:
-                    return False, ", ".join(states)
+                if not state_is_at_or_beyond(state, expected_state):
+                    all_satisfied = False
 
-            return True, expected_state
+            if all_satisfied:
+                return True, f"All BMH at or beyond {expected_state}"
+            return False, ", ".join(states)
 
         wait_for_condition(
             check,
-            f"BMH state={expected_state}",
+            f"BMH state>={expected_state}",
             timeout=timeout,
             interval=self.config.poll_interval,
             progress_fn=lambda s: self.log.progress(f"BMH status: {s}"),
