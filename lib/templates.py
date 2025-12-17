@@ -5,7 +5,6 @@ Generates Kubernetes manifests for MCC and MOSK deployment.
 Uses Jinja2 templating with TLS certificate generation.
 """
 
-import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -15,7 +14,7 @@ from .config import Config
 from .logger import DeploymentLogger
 from .state import StateManager
 from .vm_manager import VMManager
-from .jinja_engine import get_template_engine, check_jinja2_available
+from .jinja_engine import get_template_engine
 from .certs import CertificateGenerator, CertificateInfo
 
 
@@ -579,7 +578,7 @@ class TemplateGenerator:
         return str(output)
 
     def update_templates_with_config(self) -> None:
-        """Update template files with configuration values (legacy method)."""
+        """Update template files with configuration values."""
         self.log.step_start("update_templates", "Updating templates with configuration")
 
         # Get versions from state or detect

@@ -106,7 +106,7 @@ class VMManager:
         for i in range(1, mcc.count + 1):
             vms.append(VMDefinition(
                 name=f"mcc-{i:02d}",
-                mac_address=f"{mcc.mac_prefix}:{i:02d}",
+                mac_address=f"{mcc.mac_prefix}:{i}{i}",
                 vbmc_port=mcc.vbmc_port_start + i - 1,
                 ram_mb=mcc.resources.ram_mb,
                 vcpus=mcc.resources.vcpus,
@@ -123,7 +123,7 @@ class VMManager:
         for i in range(1, mosk_ctl.count + 1):
             vms.append(VMDefinition(
                 name=f"mosk-ctl-{i:02d}",
-                mac_address=f"{mosk_ctl.mac_prefix}:{i:02d}",
+                mac_address=f"{mosk_ctl.mac_prefix}:{i}{i}",
                 vbmc_port=mosk_ctl.vbmc_port_start + i - 1,
                 ram_mb=mosk_ctl.resources.ram_mb,
                 vcpus=mosk_ctl.resources.vcpus,
@@ -154,7 +154,7 @@ class VMManager:
 
             vms.append(VMDefinition(
                 name=f"mosk-cmp-{i:02d}",
-                mac_address=f"{mosk_cmp.mac_prefix}:{i:02d}",
+                mac_address=f"{mosk_cmp.mac_prefix}:{i}{i}",
                 vbmc_port=mosk_cmp.vbmc_port_start + i - 1,
                 ram_mb=mosk_cmp.resources.ram_mb,
                 vcpus=mosk_cmp.resources.vcpus,
