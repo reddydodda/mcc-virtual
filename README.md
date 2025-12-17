@@ -2,17 +2,21 @@
 
 Enterprise-ready deployment automation for Mirantis Container Cloud (MCC) and Mirantis OpenStack for Kubernetes (MOSK).
 
+**Compatible with MOSK 25.2+**
+
 ## Features
 
 - **Fully automated deployment** - No manual approval steps required
 - **Pre-flight validation** - Comprehensive checks before deployment starts
 - **Resume capability** - Continue from where you left off after failures
-- **Configurable topology** - Adjust compute node count as needed
+- **Configurable topology** - Adjust compute and storage node counts
+- **Storage mode selection** - Hyperconverged or dedicated Ceph storage
 - **Idempotent operations** - Safe to re-run without side effects
 - **Structured logging** - JSON logs with timestamps for debugging
 - **State management** - Tracks deployment progress and resources
 - **Auto-detection** - Automatically detects network interface and versions
 - **Secret management** - Environment variable support for sensitive data
+- **MiraCeph support** - Uses the new MiraCeph API for Ceph (MOSK 25.2+)
 
 ## Requirements
 
@@ -20,7 +24,7 @@ Enterprise-ready deployment automation for Mirantis Container Cloud (MCC) and Mi
 
 | Resource | Minimum | Recommended |
 |----------|---------|-------------|
-| RAM | 256 GB | 342 GB |
+| RAM | 256 GB | 384 GB |
 | CPU | 32 cores | 48+ cores |
 | Storage | 1 TB | 1.5 TB |
 
@@ -54,7 +58,7 @@ Copy your Mirantis license file to the repository root:
 cp /path/to/mirantis.lic .
 ```
 
-### Step 3: Configure Deployment (Optional)
+### Step 3: Configure Deployment
 
 Edit `config.yaml` to customize your deployment:
 
@@ -63,9 +67,37 @@ vi config.yaml
 ```
 
 Key settings:
-- `mcc_version` - MCC version to deploy (e.g., "2.30.0")
-- `topology.mosk_compute.count` - Number of compute nodes (minimum 3)
-- `primary_interface` - Network interface (auto-detected if not set)
+
+```yaml
+# MCC version to deploy
+mcc_version: "2.30.0"
+
+# Version requirements
+versions:
+  mcc_minimum: "2.30.0"
+  mosk_minimum: "25.2"
+  openstack: "antelope"
+
+# Storage mode: hyperconverged or dedicated
+topology:
+  storage_mode: hyperconverged  # or "dedicated"
+
+  mosk_compute:
+    count: 3  # Minimum 3 for Ceph quorum in hyperconverged mode
+
+  # Only used when storage_mode is "dedicated"
+  mosk_storage:
+    count: 3
+    resources:
+      ram_mb: 16384
+      vcpus: 4
+      ceph_disk_count: 3
+
+# Kubernetes settings
+kubernetes:
+  mosk:
+    dedicated_control_plane: false  # true to separate control plane
+```
 
 ### Step 4: Set Credentials (Optional)
 
@@ -92,6 +124,7 @@ This checks:
 - Required software packages
 - Network configuration
 - License file presence
+- Ceph disk configuration consistency
 
 ### Step 6: Run Deployment
 
@@ -109,7 +142,7 @@ The deployment runs through these phases:
 5. MCC deployment (management cluster)
 6. Bootstrap pivot
 7. MOSK deployment (child cluster)
-8. Ceph deployment (storage)
+8. MiraCeph deployment (Ceph storage)
 9. OpenStack deployment
 
 **Estimated time:** 2-4 hours depending on hardware
@@ -120,7 +153,7 @@ In another terminal, monitor the deployment:
 
 ```bash
 # Watch deployment log
-tail -f deployment.log
+tail -f deployments/<deployment-id>/deployment.log
 
 # Check deployment status
 python3 deploy.py status
@@ -137,6 +170,50 @@ python3 deploy.py status
 # Resume from last checkpoint
 python3 deploy.py deploy --resume
 ```
+
+---
+
+## Storage Modes
+
+### Hyperconverged Mode (Default)
+
+In hyperconverged mode, Ceph OSDs run on compute nodes alongside OpenStack compute services.
+
+```yaml
+topology:
+  storage_mode: hyperconverged
+  mosk_compute:
+    count: 3  # These nodes run both compute and Ceph
+    resources:
+      ceph_disk_count: 3  # Number of OSD disks per node
+```
+
+**Benefits:**
+- Fewer total VMs required
+- Lower resource overhead
+- Simpler management
+
+### Dedicated Storage Mode
+
+In dedicated mode, Ceph OSDs run on separate storage nodes.
+
+```yaml
+topology:
+  storage_mode: dedicated
+  mosk_compute:
+    count: 3  # Pure compute nodes
+  mosk_storage:
+    count: 3  # Dedicated Ceph storage nodes
+    resources:
+      ram_mb: 16384
+      vcpus: 4
+      ceph_disk_count: 3
+```
+
+**Benefits:**
+- Resource isolation between compute and storage
+- Independent scaling of compute and storage
+- Better performance for storage-intensive workloads
 
 ---
 
@@ -204,88 +281,6 @@ This removes:
 - Kind cluster
 - Bootstrap directory (kaas-bootstrap)
 
-### Manual Cleanup Steps
-
-If automated cleanup fails or you need granular control:
-
-#### 1. Remove VMs
-
-```bash
-# List all VMs
-virsh list --all
-
-# Destroy and undefine each VM
-for vm in $(virsh list --all --name | grep -E "^(mcc|mosk)-"); do
-    virsh destroy $vm 2>/dev/null
-    virsh undefine $vm --remove-all-storage
-done
-```
-
-#### 2. Remove vBMC Registrations
-
-```bash
-# List vBMC entries
-/opt/vbmc/bin/vbmc list
-
-# Delete each entry
-for vm in $(virsh list --all --name | grep -E "^(mcc|mosk)-"); do
-    /opt/vbmc/bin/vbmc delete $vm 2>/dev/null
-done
-
-# Stop vBMC service (optional)
-systemctl stop vbmcd
-```
-
-#### 3. Remove Network Bridges
-
-```bash
-# List networks
-virsh net-list --all
-
-# Remove deployment networks
-for net in br-pxe br-lcm br-others br-fip; do
-    virsh net-destroy $net 2>/dev/null
-    virsh net-undefine $net 2>/dev/null
-done
-```
-
-#### 4. Remove Storage Pools
-
-```bash
-# List storage pools
-virsh pool-list --all
-
-# Remove deployment pools
-for pool in mcc-images mosk-images; do
-    virsh pool-destroy $pool 2>/dev/null
-    virsh pool-undefine $pool 2>/dev/null
-done
-
-# Remove disk images
-rm -rf /var/lib/libvirt/images/mcc-*
-rm -rf /var/lib/libvirt/images/mosk-*
-```
-
-#### 5. Remove Kind Cluster
-
-```bash
-kind delete cluster --name clusterapi
-rm -f ~/.kube/kind-config-clusterapi
-```
-
-#### 6. Remove Bootstrap Directory
-
-```bash
-rm -rf kaas-bootstrap/
-```
-
-#### 7. Reset State
-
-```bash
-rm -f deployment_state.json
-rm -f deployment.log
-```
-
 ### Complete Reset
 
 To completely reset and start fresh:
@@ -295,7 +290,7 @@ To completely reset and start fresh:
 python3 deploy.py cleanup --full
 
 # Remove state files
-rm -f deployment_state.json deployment.log
+rm -rf deployments/
 
 # Remove generated configs
 rm -f kubeconfig-kaas-mgmt mosk.kubeconfig keycloak.yaml
@@ -320,13 +315,56 @@ versions:
   mosk_minimum: "25.2"
   openstack: "antelope"
 
-# VM topology (MCC and MOSK control are fixed at 3)
+# Storage mode: hyperconverged or dedicated
 topology:
+  storage_mode: hyperconverged
+
+  # MCC management cluster (fixed at 3)
+  mcc:
+    count: 3
+    resources:
+      ram_mb: 32768
+      vcpus: 8
+
+  # MOSK control plane (fixed at 3)
+  mosk_control:
+    count: 3
+    resources:
+      ram_mb: 32768
+      vcpus: 8
+
+  # MOSK compute nodes (configurable)
   mosk_compute:
-    count: 3  # Configurable: minimum 3 for Ceph quorum
+    count: 3
     resources:
       ram_mb: 49152
       vcpus: 12
+      ceph_disk_count: 3  # Used in hyperconverged mode
+
+  # MOSK storage nodes (only in dedicated mode)
+  mosk_storage:
+    count: 3
+    resources:
+      ram_mb: 16384
+      vcpus: 4
+      ceph_disk_count: 3
+
+# Kubernetes settings
+kubernetes:
+  mosk:
+    dedicated_control_plane: false
+    pod_cidr: "10.245.0.0/16"
+    service_cidr: "10.97.0.0/16"
+
+# Ceph storage configuration
+storage:
+  ceph:
+    osd_devices:
+      - vdb
+      - vdc
+      - vdd
+    pool_replication_size: 2
+    rgw_instances: 3
 ```
 
 ### Environment Variables
@@ -345,11 +383,22 @@ topology:
 
 ### VM Topology
 
+#### Hyperconverged Mode
+
 | Type | Count | RAM | vCPUs | Disks | Role |
 |------|-------|-----|-------|-------|------|
 | MCC | 3 (fixed) | 32GB | 8 | 2 | Management cluster |
 | MOSK Control | 3 (fixed) | 32GB | 8 | 2 | OpenStack control plane |
-| MOSK Compute | 3+ (configurable) | 48GB | 12 | 4 | Compute + Ceph storage |
+| MOSK Compute | 3+ (configurable) | 48GB | 12 | 4 | Compute + Ceph OSDs |
+
+#### Dedicated Storage Mode
+
+| Type | Count | RAM | vCPUs | Disks | Role |
+|------|-------|-----|-------|-------|------|
+| MCC | 3 (fixed) | 32GB | 8 | 2 | Management cluster |
+| MOSK Control | 3 (fixed) | 32GB | 8 | 2 | OpenStack control plane + Ceph Mon/Mgr |
+| MOSK Compute | 3+ (configurable) | 48GB | 12 | 1 | Compute only |
+| MOSK Storage | 3+ (configurable) | 16GB | 4 | 4 | Ceph OSDs |
 
 ### Network Bridges
 
@@ -358,7 +407,7 @@ topology:
 | br-pxe | 192.168.122.0/24 | PXE boot, provisioning |
 | br-lcm | 192.168.123.0/24 | Kubernetes management |
 | br-others | 192.168.124.0/24 | Tenant networks |
-| br-fip | 192.168.125.0/24 | Floating IPs |
+| br-fip | 192.168.125.0/24 | Floating IPs, Ceph |
 
 ### Deployment Flow
 
@@ -367,7 +416,7 @@ topology:
    ↓
 2. Infrastructure Setup (bridges, vBMC, storage)
    ↓
-3. VM Creation (9+ VMs)
+3. VM Creation (9+ VMs, varies by storage mode)
    ↓
 4. MCC Bootstrap (Kind cluster + container-cloud bootstrap)
    ↓
@@ -377,9 +426,46 @@ topology:
    ↓
 7. MOSK Deployment (child cluster)
    ↓
-8. Ceph Deployment (storage)
+8. MiraCeph Deployment (Ceph storage via lcm.mirantis.com/v1alpha1)
    ↓
 9. OpenStack Deployment
+```
+
+---
+
+## MOSK 25.2 Changes
+
+### MiraCeph (Replaces KaaSCephCluster)
+
+Starting from MOSK 25.2, Ceph is deployed using **MiraCeph** instead of the deprecated KaaSCephCluster.
+
+**Key differences:**
+- API: `lcm.mirantis.com/v1alpha1` (was `kaas.mirantis.com/v1alpha1`)
+- Kind: `MiraCeph` (was `KaaSCephCluster`)
+- Namespace: `ceph-lcm-mirantis` (was cluster namespace)
+- Device paths use `fullPath: /dev/<device>` format
+
+### Machine Distribution Field
+
+All Machine resources now require a `distribution` field:
+```yaml
+spec:
+  providerSpec:
+    value:
+      distribution: ubuntu/jammy
+```
+
+### OpenStack SSL Configuration
+
+SSL certificates are stored in a Kubernetes Secret and referenced from OpenStackDeployment:
+```yaml
+ssl:
+  public_endpoints:
+    ca_cert:
+      value_from:
+        secret_key_ref:
+          name: openstack-ssl-secret
+          key: ca_cert
 ```
 
 ---
@@ -388,7 +474,7 @@ topology:
 
 ### State File
 
-Deployment state is saved to `deployment_state.json`:
+Deployment state is saved to `deployments/<id>/deployment_state.json`:
 - Current phase
 - Completed steps
 - Detected versions
@@ -398,10 +484,10 @@ Deployment state is saved to `deployment_state.json`:
 
 ```bash
 # Follow deployment log
-tail -f deployment.log
+tail -f deployments/<id>/deployment.log
 
 # Search for errors
-grep -i error deployment.log
+grep -i error deployments/<id>/deployment.log
 ```
 
 ### Kubernetes Resources
@@ -420,7 +506,7 @@ kubectl get cluster -o wide
 
 # MOSK cluster resources
 kubectl get bmh -n mosk -o wide
-kubectl get kcc -n mosk -o wide
+kubectl get miraceph -n ceph-lcm-mirantis -o wide
 
 # OpenStack resources
 export KUBECONFIG=mosk.kubeconfig
@@ -441,6 +527,7 @@ kubectl -n openstack get osdplst -o wide
 | Network interface not found | Set `primary_interface` in config.yaml |
 | VM fails to boot | Check vBMC logs: `journalctl -u vbmcd` |
 | Deployment stuck | Check `python3 deploy.py status` and logs |
+| Ceph disk mismatch | Ensure `ceph_disk_count` matches `osd_devices` list |
 
 ### Manual Debugging
 
@@ -461,6 +548,9 @@ kubectl --kubeconfig ~/.kube/kind-config-clusterapi get nodes
 # Check LCM agent status
 kubectl get lcmmachines -o wide
 kubectl get machine -o json | jq '.items[].status.providerStatus.conditions'
+
+# Check MiraCeph status
+kubectl -n ceph-lcm-mirantis get miraceph -o yaml
 
 # Check pod logs
 kubectl logs -n kaas deployment/lcm-controller -f
@@ -520,8 +610,10 @@ mcc-virtual/
 ├── deploy.py              # Main entry point
 ├── config.yaml            # Configuration file
 ├── mirantis.lic           # License file (you provide)
-├── deployment_state.json  # State file (generated)
-├── deployment.log         # Log file (generated)
+├── deployments/           # Deployment state and logs
+│   └── <deployment-id>/
+│       ├── deployment_state.json
+│       └── deployment.log
 ├── lib/                   # Python modules
 │   ├── __init__.py
 │   ├── config.py          # Configuration management
@@ -532,13 +624,38 @@ mcc-virtual/
 │   ├── infrastructure.py  # Infrastructure setup
 │   ├── vm_manager.py      # VM management
 │   ├── templates.py       # Template generation
+│   ├── jinja_engine.py    # Jinja2 template engine
+│   ├── certs.py           # TLS certificate generation
 │   └── deployer.py        # Main orchestrator
 ├── templates/             # Jinja2 templates
-│   ├── mcc/
-│   └── mosk/
-├── mcc/                   # MCC manifest templates
-├── mosk/                  # MOSK manifest templates
-└── legacy/                # Deprecated shell scripts
+│   ├── mcc/               # MCC cluster templates
+│   │   ├── cluster.yaml.j2
+│   │   ├── machines.yaml.j2
+│   │   ├── baremetalhosts.yaml.j2
+│   │   ├── baremetalhostprofiles.yaml.j2
+│   │   ├── metallbconfig.yaml.j2
+│   │   ├── ipam-objects.yaml.j2
+│   │   ├── bootstrapregion.yaml.j2
+│   │   └── serviceusers.yaml.j2
+│   └── mosk/              # MOSK cluster templates
+│       ├── namespace.yaml.j2
+│       ├── cluster.yaml.j2
+│       ├── bmh-control.yaml.j2
+│       ├── bmh-compute.yaml.j2
+│       ├── bmh-storage.yaml.j2      # Dedicated mode only
+│       ├── bmhp-ctl.yaml.j2
+│       ├── bmhp-cmp.yaml.j2
+│       ├── bmhp-storage.yaml.j2     # Dedicated mode only
+│       ├── machines-control.yaml.j2
+│       ├── machines-compute.yaml.j2
+│       ├── machines-storage.yaml.j2 # Dedicated mode only
+│       ├── l2template.yaml.j2
+│       ├── subnet.yaml.j2
+│       ├── metallbconfig.yaml.j2
+│       ├── miraceph.yaml.j2         # MiraCeph (MOSK 25.2+)
+│       ├── osdpl-secret.yaml.j2     # OpenStack SSL secret
+│       └── osdpl.yaml.j2            # OpenStackDeployment
+└── certs/                 # Generated TLS certificates
 ```
 
 ---
@@ -547,7 +664,9 @@ mcc-virtual/
 
 - [Mirantis Container Cloud Documentation](https://docs.mirantis.com/container-cloud/latest/)
 - [Mirantis OpenStack for Kubernetes Documentation](https://docs.mirantis.com/mosk/25.2/)
-- [MOSK Deployment Guide](https://docs.mirantis.com/mosk/latest/deploy/provision-bm/deploy-mgmt-v2/bootstrapv2-setup.html)
+- [MOSK Deployment Guide](https://docs.mirantis.com/mosk/25.2/deploy.html)
+- [MiraCeph Configuration](https://docs.mirantis.com/mosk/25.2/deploy/deploy-managed/add-ceph.html)
+- [OpenStackDeployment Reference](https://docs.mirantis.com/mosk/25.2/api/os-api.html)
 
 ## Support
 

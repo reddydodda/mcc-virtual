@@ -105,8 +105,8 @@ class VMManager:
         mcc = self.config.mcc_topology
         for i in range(1, mcc.count + 1):
             vms.append(VMDefinition(
-                name=f"mcc-{i}{i}",
-                mac_address=f"{mcc.mac_prefix}:{i}{i}",
+                name=f"mcc-{i:02d}",
+                mac_address=f"{mcc.mac_prefix}:{i:02d}",
                 vbmc_port=mcc.vbmc_port_start + i - 1,
                 ram_mb=mcc.resources.ram_mb,
                 vcpus=mcc.resources.vcpus,
@@ -122,8 +122,8 @@ class VMManager:
         mosk_ctl = self.config.mosk_control_topology
         for i in range(1, mosk_ctl.count + 1):
             vms.append(VMDefinition(
-                name=f"mosk-ctl-{i}{i}",
-                mac_address=f"{mosk_ctl.mac_prefix}:{i}{i}",
+                name=f"mosk-ctl-{i:02d}",
+                mac_address=f"{mosk_ctl.mac_prefix}:{i:02d}",
                 vbmc_port=mosk_ctl.vbmc_port_start + i - 1,
                 ram_mb=mosk_ctl.resources.ram_mb,
                 vcpus=mosk_ctl.resources.vcpus,
@@ -152,12 +152,9 @@ class VMManager:
                     "name": f"disk{j + 3}",
                 })
 
-            # For 2-digit MAC, pad single digits
-            mac_suffix = f"{i}{i}" if i < 10 else f"{i:02d}"
-
             vms.append(VMDefinition(
-                name=f"mosk-cmp-{i}{i}" if i < 10 else f"mosk-cmp-{i:02d}",
-                mac_address=f"{mosk_cmp.mac_prefix}:{mac_suffix}",
+                name=f"mosk-cmp-{i:02d}",
+                mac_address=f"{mosk_cmp.mac_prefix}:{i:02d}",
                 vbmc_port=mosk_cmp.vbmc_port_start + i - 1,
                 ram_mb=mosk_cmp.resources.ram_mb,
                 vcpus=mosk_cmp.resources.vcpus,
@@ -182,12 +179,9 @@ class VMManager:
                         "name": f"disk{j + 3}",
                     })
 
-                # For 2-digit MAC, pad single digits
-                mac_suffix = f"{i}{i}" if i < 10 else f"{i:02d}"
-
                 vms.append(VMDefinition(
-                    name=f"mosk-storage-{i}{i}" if i < 10 else f"mosk-storage-{i:02d}",
-                    mac_address=f"{mosk_storage.mac_prefix}:{mac_suffix}",
+                    name=f"mosk-storage-{i:02d}",
+                    mac_address=f"{mosk_storage.mac_prefix}:{i:02d}",
                     vbmc_port=mosk_storage.vbmc_port_start + i - 1,
                     ram_mb=mosk_storage.resources.ram_mb,
                     vcpus=mosk_storage.resources.vcpus,
@@ -250,6 +244,13 @@ class VMManager:
                         f"--disk size={disk['size_gb']},path={disk_path},bus=sata,format=qcow2"
                     )
 
+                # Get bridge names from config
+                bridges = self.config.bridges
+                br_pxe = bridges.get("pxe", {}).name if "pxe" in bridges else "br-pxe"
+                br_lcm = bridges.get("lcm", {}).name if "lcm" in bridges else "br-lcm"
+                br_tenant = bridges.get("tenant", {}).name if "tenant" in bridges else "br-others"
+                br_floating = bridges.get("floating", {}).name if "floating" in bridges else "br-fip"
+
                 # Build virt-install command - use local connection (qemu:///system)
                 # instead of SSH connection since we're running directly on the KVM node
                 cmd = f"""sudo virt-install \\
@@ -260,10 +261,10 @@ class VMManager:
                     --ram={vm.ram_mb} \\
                     --vcpus={vm.vcpus} \\
                     {' '.join(disk_args)} \\
-                    --network bridge=br-pxe,model=virtio,mac={vm.mac_address} \\
-                    --network bridge=br-lcm,model=virtio \\
-                    --network bridge=br-others,model=virtio \\
-                    --network bridge=br-fip,model=virtio \\
+                    --network bridge={br_pxe},model=virtio,mac={vm.mac_address} \\
+                    --network bridge={br_lcm},model=virtio \\
+                    --network bridge={br_tenant},model=virtio \\
+                    --network bridge={br_floating},model=virtio \\
                     --graphics vnc \\
                     --boot network,hd \\
                     --noautoconsole"""
