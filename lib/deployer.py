@@ -539,7 +539,7 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
             self.log.phase_failed("mcc_bootstrap", str(e))
             raise
 
-    def _wait_for_crd(self, crd_name: str, kubeconfig: str, timeout: int = 600) -> None:
+    def _wait_for_crd(self, crd_name: str, kubeconfig: str, timeout: int = 6000) -> None:
         """Wait for a CRD to be installed."""
         def check() -> Tuple[bool, str]:
             try:
@@ -724,7 +724,7 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
             self._wait_for_resource_json(
                 "cluster", "status.ready", True,
                 kubeconfig=str(mgmt_kubeconfig),
-                timeout=600,
+                timeout=6000,
             )
 
             self.log.progress("Getting Keycloak credentials")
@@ -757,7 +757,7 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
         kubeconfig: str,
         min_stable_checks: int = 3,
         check_interval: int = 30,
-        timeout: int = 600,
+        timeout: int = 6000,
     ) -> None:
         """Wait for LCM machines to stabilize (consistent Ready state)."""
         stable_count = 0

@@ -6,6 +6,7 @@ Supports environment variable overrides for sensitive data.
 """
 
 import os
+import warnings
 import yaml
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
@@ -97,15 +98,39 @@ class Config:
 
     def _apply_env_overrides(self) -> None:
         """Apply environment variable overrides for sensitive data."""
+        # Track which credentials are using defaults
+        using_defaults = []
+
         # BMC credentials
         self._bmc_username = os.environ.get("MCC_BMC_USERNAME", self.DEFAULT_BMC_USERNAME)
-        self._bmc_password = os.environ.get("MCC_BMC_PASSWORD", self.DEFAULT_BMC_PASSWORD)
+        if "MCC_BMC_PASSWORD" in os.environ:
+            self._bmc_password = os.environ["MCC_BMC_PASSWORD"]
+        else:
+            self._bmc_password = self.DEFAULT_BMC_PASSWORD
+            using_defaults.append("MCC_BMC_PASSWORD")
 
         # Root password for VMs
-        self._root_password = os.environ.get("MCC_ROOT_PASSWORD", self.DEFAULT_ROOT_PASSWORD)
+        if "MCC_ROOT_PASSWORD" in os.environ:
+            self._root_password = os.environ["MCC_ROOT_PASSWORD"]
+        else:
+            self._root_password = self.DEFAULT_ROOT_PASSWORD
+            using_defaults.append("MCC_ROOT_PASSWORD")
 
         # Service user password
-        self._service_password = os.environ.get("MCC_SERVICE_PASSWORD", self.DEFAULT_SERVICE_PASSWORD)
+        if "MCC_SERVICE_PASSWORD" in os.environ:
+            self._service_password = os.environ["MCC_SERVICE_PASSWORD"]
+        else:
+            self._service_password = self.DEFAULT_SERVICE_PASSWORD
+            using_defaults.append("MCC_SERVICE_PASSWORD")
+
+        # Warn about default credentials
+        if using_defaults:
+            warnings.warn(
+                f"SECURITY WARNING: Using default credentials for: {', '.join(using_defaults)}. "
+                f"Set these environment variables for production deployments.",
+                UserWarning,
+                stacklevel=3
+            )
 
         # License file path override
         license_env = os.environ.get("MCC_LICENSE_PATH")

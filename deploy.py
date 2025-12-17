@@ -28,6 +28,7 @@ Environment Variables:
 
 import argparse
 import os
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -163,17 +164,21 @@ def run_remote_command(host: str, command: str, args_list: list, verbose: bool =
     Returns:
         Exit code from remote command
     """
-    # Build the remote command
-    remote_cmd = f"cd {REMOTE_DIR} && python3 deploy.py"
+    # Build the remote command parts safely using shlex.quote
+    remote_parts = [f"cd {shlex.quote(REMOTE_DIR)}", "python3 deploy.py"]
 
     if verbose:
-        remote_cmd += " -v"
+        remote_parts[1] += " -v"
 
-    remote_cmd += f" {command}"
+    # Quote command to prevent injection
+    remote_parts[1] += f" {shlex.quote(command)}"
 
-    # Add any extra arguments
+    # Add any extra arguments with proper escaping
     for arg in args_list:
-        remote_cmd += f" {arg}"
+        remote_parts[1] += f" {shlex.quote(arg)}"
+
+    # Join with && for the remote shell
+    remote_cmd = " && ".join(remote_parts)
 
     print(f"Running on {host}: {command}")
     print("-" * 60)

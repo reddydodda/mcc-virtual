@@ -7,6 +7,7 @@ Common utility functions for command execution, waiting, network detection, etc.
 import json
 import os
 import re
+import shlex
 import shutil
 import socket
 import subprocess
@@ -475,8 +476,8 @@ def kubectl_command(
     cmd = ["kubectl"]
     if namespace:
         cmd.extend(["-n", namespace])
-    # Split command string into args (simple split, assumes no quoted args with spaces)
-    cmd.extend(command.split())
+    # Use shlex.split() for proper shell-style parsing with quote handling
+    cmd.extend(shlex.split(command))
 
     # Pass kubeconfig via environment variable instead of shell interpolation
     env = None

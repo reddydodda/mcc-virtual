@@ -7,6 +7,7 @@ and other infrastructure prerequisites.
 
 import os
 import re
+import shlex
 import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -113,16 +114,20 @@ class InfrastructureManager:
             modules = ["br_netfilter", "overlay"]
             for module in modules:
                 self.log.progress(f"Loading kernel module: {module}")
-                # Check if already loaded
-                result = run_command(f"grep -q {module} /proc/modules", check=False)
+                # Check if already loaded using list-based command
+                result = run_command(["grep", "-q", module, "/proc/modules"], check=False)
                 if result.returncode != 0:
-                    run_command(f"sudo modprobe {module}", timeout=30)
+                    run_command(["sudo", "modprobe", module], timeout=30)
 
             # Make modules persistent across reboots
             modules_conf = "/etc/modules-load.d/k8s-mcc.conf"
             self.log.progress("Making kernel modules persistent")
             modules_content = "\n".join(modules) + "\n"
-            run_command(f"echo '{modules_content}' | sudo tee {modules_conf}", timeout=10)
+            # Write to temp file and move to avoid shell injection
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.conf', delete=False) as f:
+                f.write(modules_content)
+                temp_modules = f.name
+            run_command(["sudo", "mv", temp_modules, modules_conf], timeout=10)
 
             # Configure sysctl settings for Kubernetes networking
             sysctl_settings = {
@@ -136,7 +141,11 @@ class InfrastructureManager:
             self.log.progress("Configuring sysctl settings")
             sysctl_conf = "/etc/sysctl.d/99-k8s-mcc.conf"
             sysctl_content = "\n".join(f"{k} = {v}" for k, v in sysctl_settings.items()) + "\n"
-            run_command(f"echo '{sysctl_content}' | sudo tee {sysctl_conf}", timeout=10)
+            # Write to temp file and move to avoid shell injection
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.conf', delete=False) as f:
+                f.write(sysctl_content)
+                temp_sysctl = f.name
+            run_command(["sudo", "mv", temp_sysctl, sysctl_conf], timeout=10)
 
             # Apply sysctl settings
             run_command("sudo sysctl --system", timeout=30)
@@ -413,27 +422,32 @@ class InfrastructureManager:
             disk = output.split()[0]
 
             # Validate disk name to prevent command injection
-            # Valid disk names: sda, nvme0n1, vda, xvda, etc.
-            if not re.match(r'^[a-zA-Z0-9_-]+$', disk):
+            # Valid disk names: sda, sdb, nvme0n1, vda, xvda, etc.
+            if not re.match(r'^(sd[a-z]+|nvme[0-9]+n[0-9]+|vd[a-z]+|xvd[a-z]+)$', disk):
                 raise ValueError(f"Invalid disk name format: {disk}")
 
             self.log.progress(f"Found disk: /dev/{disk}")
 
-            # Check if disk needs formatting
-            fstype = run_command_output(f"lsblk -no FSTYPE /dev/{disk}")
+            # Check if disk needs formatting - use list-based command
+            fstype = run_command_output(["lsblk", "-no", "FSTYPE", f"/dev/{disk}"])
             if not fstype.strip():
                 self.log.progress(f"Formatting /dev/{disk} as ext4")
-                run_command(f"sudo mkfs.ext4 /dev/{disk}")
+                run_command(["sudo", "mkfs.ext4", f"/dev/{disk}"])
 
             # Create mount point and mount
-            run_command(f"sudo mkdir -p {images_path}")
-            run_command(f"sudo mount /dev/{disk} {images_path}")
+            run_command(["sudo", "mkdir", "-p", images_path])
+            run_command(["sudo", "mount", f"/dev/{disk}", images_path])
 
             # Add to fstab for persistence
             fstab_entry = f"/dev/{disk} {images_path} ext4 defaults 0 0"
-            result = run_command(f"grep -q '{images_path}' /etc/fstab", check=False)
+            result = run_command(["grep", "-q", images_path, "/etc/fstab"], check=False)
             if result.returncode != 0:
-                run_command(f"echo '{fstab_entry}' | sudo tee -a /etc/fstab")
+                # Write fstab entry via temp file to avoid shell injection
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.fstab', delete=False) as f:
+                    f.write(fstab_entry + "\n")
+                    temp_fstab = f.name
+                run_command(f"cat {shlex.quote(temp_fstab)} | sudo tee -a /etc/fstab", timeout=10)
+                os.unlink(temp_fstab)
                 self.log.progress("Added mount to /etc/fstab")
 
             self.state.complete_step(step_name, {"disk": disk, "path": images_path})

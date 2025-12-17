@@ -5,6 +5,7 @@ Handles deployment state persistence, tracking, and recovery.
 Enables resume capability after failures.
 """
 
+import fcntl
 import json
 import shutil
 from dataclasses import dataclass, field, asdict
@@ -204,9 +205,12 @@ class StateManager:
         return self._state
 
     def save(self) -> None:
-        """Save state to file."""
+        """Save state to file with file locking to prevent race conditions."""
         if self._state is None:
             return
+
+        # Ensure parent directory exists
+        self.state_file.parent.mkdir(parents=True, exist_ok=True)
 
         if self.backup_on_change and self.state_file.exists():
             backup_path = self.state_file.with_suffix(
@@ -222,8 +226,13 @@ class StateManager:
                 except FileNotFoundError:
                     pass  # Already deleted by another process
 
+        # Use file locking to prevent concurrent write issues
         with open(self.state_file, 'w') as f:
-            json.dump(asdict(self._state), f, indent=2)
+            try:
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                json.dump(asdict(self._state), f, indent=2)
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
     @property
     def state(self) -> DeploymentState:

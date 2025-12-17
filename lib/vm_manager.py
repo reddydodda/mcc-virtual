@@ -236,13 +236,23 @@ class VMManager:
             if vm_exists(vm.name):
                 self.log.progress(f"VM {vm.name} already exists, skipping creation")
             else:
-                # Build disk arguments
-                disk_args = []
+                # Build virt-install command as a list to prevent command injection
+                cmd = [
+                    "sudo", "virt-install",
+                    "--connect", "qemu:///system",
+                    "--virt-type=kvm",
+                    "--name", vm.name,
+                    "--os-variant=ubuntu20.04",
+                    "--ram", str(vm.ram_mb),
+                    "--vcpus", str(vm.vcpus),
+                ]
+
+                # Add disk arguments
                 for disk in vm.disks:
                     disk_path = f"{self.config.images_path}/{vm.name}-{disk['name']}.qcow2"
-                    disk_args.append(
-                        f"--disk size={disk['size_gb']},path={disk_path},bus=sata,format=qcow2"
-                    )
+                    cmd.extend([
+                        "--disk", f"size={disk['size_gb']},path={disk_path},bus=sata,format=qcow2"
+                    ])
 
                 # Get bridge names from config
                 bridges = self.config.bridges
@@ -251,23 +261,16 @@ class VMManager:
                 br_tenant = bridges.get("tenant", {}).name if "tenant" in bridges else "br-others"
                 br_floating = bridges.get("floating", {}).name if "floating" in bridges else "br-fip"
 
-                # Build virt-install command - use local connection (qemu:///system)
-                # instead of SSH connection since we're running directly on the KVM node
-                cmd = f"""sudo virt-install \\
-                    --connect qemu:///system \\
-                    --virt-type=kvm \\
-                    --name={vm.name} \\
-                    --os-variant=ubuntu20.04 \\
-                    --ram={vm.ram_mb} \\
-                    --vcpus={vm.vcpus} \\
-                    {' '.join(disk_args)} \\
-                    --network bridge={br_pxe},model=virtio,mac={vm.mac_address} \\
-                    --network bridge={br_lcm},model=virtio \\
-                    --network bridge={br_tenant},model=virtio \\
-                    --network bridge={br_floating},model=virtio \\
-                    --graphics vnc \\
-                    --boot network,hd \\
-                    --noautoconsole"""
+                # Add network arguments
+                cmd.extend([
+                    "--network", f"bridge={br_pxe},model=virtio,mac={vm.mac_address}",
+                    "--network", f"bridge={br_lcm},model=virtio",
+                    "--network", f"bridge={br_tenant},model=virtio",
+                    "--network", f"bridge={br_floating},model=virtio",
+                    "--graphics", "vnc",
+                    "--boot", "network,hd",
+                    "--noautoconsole",
+                ])
 
                 self.log.progress(f"Running virt-install for {vm.name}")
                 run_command(cmd, timeout=300)
@@ -315,13 +318,14 @@ class VMManager:
         if not vbmc_bin:
             raise RuntimeError("vbmc binary not found")
 
-        cmd = (
-            f"sudo {vbmc_bin} add {vm.name} "
-            f"--port {vm.vbmc_port} "
-            f"--username {self.config.bmc_username} "
-            f"--password {self.config.bmc_password} "
-            f"--address {self.kvm_node_ip}"
-        )
+        # Use list-based command to prevent injection
+        cmd = [
+            "sudo", vbmc_bin, "add", vm.name,
+            "--port", str(vm.vbmc_port),
+            "--username", self.config.bmc_username,
+            "--password", self.config.bmc_password,
+            "--address", self.kvm_node_ip,
+        ]
         run_command(cmd)
         self.log.progress(f"Registered vBMC for {vm.name} on port {vm.vbmc_port}")
 
@@ -353,12 +357,12 @@ class VMManager:
 
             for vm in vms:
                 try:
-                    run_command(f"sudo {vbmc_bin} start {vm.name}", check=False)
+                    run_command(["sudo", vbmc_bin, "start", vm.name], check=False)
                 except Exception:
                     pass  # May already be running
 
             # Verify
-            output = run_command_output(f"{vbmc_bin} list")
+            output = run_command_output([vbmc_bin, "list"])
             self.log.progress(f"vBMC status:\n{output}")
 
             self.state.complete_step(step_name)
@@ -384,11 +388,15 @@ class VMManager:
             for vm in vms:
                 self.log.progress(f"Powering off {vm.name}")
                 try:
-                    cmd = (
-                        f"ipmitool -I lanplus -H {self.kvm_node_ip} "
-                        f"-U {self.config.bmc_username} -P {self.config.bmc_password} "
-                        f"-p {vm.vbmc_port} power off"
-                    )
+                    # Use list-based command to prevent injection
+                    cmd = [
+                        "ipmitool", "-I", "lanplus",
+                        "-H", self.kvm_node_ip,
+                        "-U", self.config.bmc_username,
+                        "-P", self.config.bmc_password,
+                        "-p", str(vm.vbmc_port),
+                        "power", "off",
+                    ]
                     run_command(cmd, check=False, timeout=30)
                 except Exception as e:
                     self.log.warning(f"Could not power off {vm.name}: {e}")
@@ -441,7 +449,7 @@ class VMManager:
 
         try:
             # Get list of all vBMC entries
-            output = run_command_output(f"sudo {vbmc_bin} list", timeout=30)
+            output = run_command_output(["sudo", vbmc_bin, "list"], timeout=30)
             lines = output.strip().split("\n")
 
             # Parse vBMC list output (skip header lines)
@@ -461,8 +469,8 @@ class VMManager:
                 if domain_name.startswith(("mcc-", "mosk-")):
                     self.log.progress(f"Removing vBMC entry: {domain_name}")
                     try:
-                        run_command(f"sudo {vbmc_bin} stop {domain_name}", check=False, timeout=30)
-                        run_command(f"sudo {vbmc_bin} delete {domain_name}", check=False, timeout=30)
+                        run_command(["sudo", vbmc_bin, "stop", domain_name], check=False, timeout=30)
+                        run_command(["sudo", vbmc_bin, "delete", domain_name], check=False, timeout=30)
                     except Exception as e:
                         self.log.warning(f"Failed to remove vBMC {domain_name}: {e}")
 
@@ -483,8 +491,8 @@ class VMManager:
                 if vm_name.startswith(("mcc-", "mosk-")):
                     self.log.progress(f"Removing VM: {vm_name}")
                     try:
-                        run_command(f"sudo virsh destroy {vm_name}", check=False, timeout=60)
-                        run_command(f"sudo virsh undefine {vm_name}", check=False, timeout=60)
+                        run_command(["sudo", "virsh", "destroy", vm_name], check=False, timeout=60)
+                        run_command(["sudo", "virsh", "undefine", vm_name], check=False, timeout=60)
                     except Exception as e:
                         self.log.warning(f"Failed to remove VM {vm_name}: {e}")
 
@@ -492,7 +500,7 @@ class VMManager:
                     for suffix in ["disk1", "disk2", "disk3", "osd1", "osd2", "osd3"]:
                         disk_path = f"{self.config.images_path}/{vm_name}-{suffix}.qcow2"
                         try:
-                            run_command(f"sudo rm -f {disk_path}", check=False, timeout=10)
+                            run_command(["sudo", "rm", "-f", disk_path], check=False, timeout=10)
                         except Exception:
                             pass
 
@@ -513,15 +521,15 @@ class VMManager:
         # Stop and delete from vBMC
         if vbmc_bin:
             try:
-                run_command(f"sudo {vbmc_bin} stop {vm.name}", check=False, timeout=30)
-                run_command(f"sudo {vbmc_bin} delete {vm.name}", check=False, timeout=30)
+                run_command(["sudo", vbmc_bin, "stop", vm.name], check=False, timeout=30)
+                run_command(["sudo", vbmc_bin, "delete", vm.name], check=False, timeout=30)
             except Exception:
                 pass
 
         # Destroy and undefine VM
         try:
-            run_command(f"sudo virsh destroy {vm.name}", check=False, timeout=60)
-            run_command(f"sudo virsh undefine {vm.name}", check=False, timeout=60)
+            run_command(["sudo", "virsh", "destroy", vm.name], check=False, timeout=60)
+            run_command(["sudo", "virsh", "undefine", vm.name], check=False, timeout=60)
         except Exception:
             pass
 
@@ -529,7 +537,7 @@ class VMManager:
         for disk in vm.disks:
             disk_path = f"{self.config.images_path}/{vm.name}-{disk['name']}.qcow2"
             try:
-                run_command(f"sudo rm -f {disk_path}", check=False, timeout=10)
+                run_command(["sudo", "rm", "-f", disk_path], check=False, timeout=10)
             except Exception:
                 pass
 

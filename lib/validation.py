@@ -413,13 +413,22 @@ class PreflightValidator:
                 )
 
     def check_dns_resolution(self) -> None:
-        """Check DNS resolution works."""
+        """Check DNS resolution works with timeout."""
+        # Set a timeout for DNS resolution
+        original_timeout = socket.getdefaulttimeout()
         try:
+            socket.setdefaulttimeout(10)  # 10 second timeout
             socket.gethostbyname("binary.mirantis.com")
             self._add_result(
                 "dns_resolution",
                 True,
                 "DNS resolution working",
+            )
+        except socket.timeout:
+            self._add_result(
+                "dns_resolution",
+                False,
+                "DNS resolution timed out after 10 seconds",
             )
         except socket.error as e:
             self._add_result(
@@ -427,6 +436,8 @@ class PreflightValidator:
                 False,
                 f"DNS resolution failed: {e}",
             )
+        finally:
+            socket.setdefaulttimeout(original_timeout)
 
     def check_ports_available(self) -> None:
         """Check required ports are available."""

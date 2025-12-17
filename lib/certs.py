@@ -87,12 +87,16 @@ class CertificateGenerator:
         ca_key_path = self.output_dir / "ca.key"
         ca_cert_path = self.output_dir / "ca.crt"
 
-        # Generate CA private key
-        subprocess.run([
-            "openssl", "genrsa",
-            "-out", str(ca_key_path),
-            str(self.key_size),
-        ], check=True, capture_output=True)
+        # Generate CA private key with proper error handling
+        try:
+            result = subprocess.run([
+                "openssl", "genrsa",
+                "-out", str(ca_key_path),
+                str(self.key_size),
+            ], check=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to generate CA private key: {e.stderr.decode() if e.stderr else str(e)}")
+            raise
 
         # Create CA certificate config
         ca_config = f"""
@@ -122,16 +126,20 @@ keyUsage = critical, digitalSignature, cRLSign, keyCertSign
             config_path = f.name
 
         try:
-            # Generate CA certificate
-            subprocess.run([
-                "openssl", "req",
-                "-x509", "-new", "-nodes",
-                "-key", str(ca_key_path),
-                "-sha256",
-                "-days", str(self.validity_days),
-                "-out", str(ca_cert_path),
-                "-config", config_path,
-            ], check=True, capture_output=True)
+            # Generate CA certificate with proper error handling
+            try:
+                subprocess.run([
+                    "openssl", "req",
+                    "-x509", "-new", "-nodes",
+                    "-key", str(ca_key_path),
+                    "-sha256",
+                    "-days", str(self.validity_days),
+                    "-out", str(ca_cert_path),
+                    "-config", config_path,
+                ], check=True, capture_output=True)
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Failed to generate CA certificate: {e.stderr.decode() if e.stderr else str(e)}")
+                raise
         finally:
             os.unlink(config_path)
 
@@ -219,36 +227,48 @@ subjectAltName = @alt_names
             config_path = f.name
 
         try:
-            # Generate server private key
-            subprocess.run([
-                "openssl", "genrsa",
-                "-out", str(server_key_path),
-                str(self.key_size),
-            ], check=True, capture_output=True)
+            # Generate server private key with proper error handling
+            try:
+                subprocess.run([
+                    "openssl", "genrsa",
+                    "-out", str(server_key_path),
+                    str(self.key_size),
+                ], check=True, capture_output=True)
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Failed to generate server private key: {e.stderr.decode() if e.stderr else str(e)}")
+                raise
 
-            # Generate CSR
-            subprocess.run([
-                "openssl", "req",
-                "-new",
-                "-key", str(server_key_path),
-                "-out", str(server_csr_path),
-                "-config", config_path,
-            ], check=True, capture_output=True)
+            # Generate CSR with proper error handling
+            try:
+                subprocess.run([
+                    "openssl", "req",
+                    "-new",
+                    "-key", str(server_key_path),
+                    "-out", str(server_csr_path),
+                    "-config", config_path,
+                ], check=True, capture_output=True)
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Failed to generate CSR: {e.stderr.decode() if e.stderr else str(e)}")
+                raise
 
-            # Sign with CA
-            subprocess.run([
-                "openssl", "x509",
-                "-req",
-                "-in", str(server_csr_path),
-                "-CA", ca_cert_path,
-                "-CAkey", ca_key_path,
-                "-CAcreateserial",
-                "-out", str(server_cert_path),
-                "-days", str(self.validity_days),
-                "-sha256",
-                "-extfile", config_path,
-                "-extensions", "v3_ext",
-            ], check=True, capture_output=True)
+            # Sign with CA with proper error handling
+            try:
+                subprocess.run([
+                    "openssl", "x509",
+                    "-req",
+                    "-in", str(server_csr_path),
+                    "-CA", ca_cert_path,
+                    "-CAkey", ca_key_path,
+                    "-CAcreateserial",
+                    "-out", str(server_cert_path),
+                    "-days", str(self.validity_days),
+                    "-sha256",
+                    "-extfile", config_path,
+                    "-extensions", "v3_ext",
+                ], check=True, capture_output=True)
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Failed to sign server certificate: {e.stderr.decode() if e.stderr else str(e)}")
+                raise
 
         finally:
             os.unlink(config_path)
