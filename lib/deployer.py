@@ -1105,9 +1105,30 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
             self.templates.update_templates_with_config()
 
             mosk_dir = base_dir / "mosk"
-            self.templates.generate_all_mosk_bmh(str(mosk_dir), namespace)
-            self.templates.generate_all_mosk_machines(str(mosk_dir), namespace)
-            self.templates.generate_kcc_manifest(str(mosk_dir), namespace)
+
+            # Generate MOSK templates if methods exist and templates don't already exist
+            # This supports both fresh deployment and resume scenarios
+            bmh_dir = mosk_dir / "03-bmh"
+            machine_dir = mosk_dir / "08-machine"
+
+            if hasattr(self.templates, 'generate_all_mosk_bmh'):
+                if not bmh_dir.exists() or not list(bmh_dir.glob("*.yaml")):
+                    self.templates.generate_all_mosk_bmh(str(mosk_dir), namespace)
+                else:
+                    self.log.progress("MOSK BMH templates already exist, skipping generation")
+
+            if hasattr(self.templates, 'generate_all_mosk_machines'):
+                if not machine_dir.exists() or not list(machine_dir.glob("*.yaml")):
+                    self.templates.generate_all_mosk_machines(str(mosk_dir), namespace)
+                else:
+                    self.log.progress("MOSK machine templates already exist, skipping generation")
+
+            if hasattr(self.templates, 'generate_kcc_manifest'):
+                kcc_file = mosk_dir / "09-kcc.yaml"
+                if not kcc_file.exists():
+                    self.templates.generate_kcc_manifest(str(mosk_dir), namespace)
+                else:
+                    self.log.progress("KCC manifest already exists, skipping generation")
 
             templates = [
                 "mosk/01-namespace.yaml",
