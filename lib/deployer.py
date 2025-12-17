@@ -1647,15 +1647,21 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
             if not items:
                 return False, "No LCM machines found"
 
+            # Collect ALL machine states first
             states = []
+            all_ready = True
             for item in items:
                 name = item.get("metadata", {}).get("name", "unknown")
                 state = item.get("status", {}).get("state", "unknown")
                 states.append(f"{name}={state}")
                 if state != "Ready":
-                    return False, ", ".join(states)
+                    all_ready = False
 
-            return True, "Ready"
+            # Return all states in status message
+            status_str = ", ".join(states)
+            if all_ready:
+                return True, f"All ready: {status_str}"
+            return False, status_str
 
         wait_for_condition(
             check,
