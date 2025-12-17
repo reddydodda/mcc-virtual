@@ -647,6 +647,55 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
         except Exception:
             return False
 
+    def _regenerate_mgmt_kubeconfig(self, bootstrap_dir: Path) -> Optional[Path]:
+        """Regenerate management cluster kubeconfig using container-cloud.
+
+        This is used during resume when the kubeconfig file is missing but
+        the cluster is accessible via the Kind cluster or other means.
+        """
+        self.log.progress("Attempting to regenerate management cluster kubeconfig...")
+
+        kind_kubeconfig = Path.home() / ".kube" / "kind-config-clusterapi"
+        mgmt_kubeconfig = (bootstrap_dir / f"kubeconfig-{self.config.mcc_cluster_name}").resolve()
+
+        # First try using Kind cluster if available
+        if kind_kubeconfig.exists():
+            try:
+                self.log.progress("Trying to generate kubeconfig via Kind cluster...")
+                run_command(
+                    ["./container-cloud", "get", "cluster-kubeconfig",
+                     "--kubeconfig", str(kind_kubeconfig),
+                     "--cluster-name", self.config.mcc_cluster_name],
+                    cwd=str(bootstrap_dir),
+                    timeout=120,
+                )
+                if mgmt_kubeconfig.exists():
+                    self.log.progress(f"Successfully regenerated kubeconfig at: {mgmt_kubeconfig}")
+                    return mgmt_kubeconfig
+            except Exception as e:
+                self.log.warning(f"Could not regenerate via Kind: {e}")
+
+        # Try extracting from the management cluster directly using kubectl
+        try:
+            self.log.progress("Trying to extract kubeconfig from cluster secret...")
+            # Get the kubeconfig from the cluster secret
+            output = run_command_output(
+                ["kubectl", "get", "secret",
+                 f"{self.config.mcc_cluster_name}-kubeconfig",
+                 "-o", "jsonpath={.data.admin\\.conf}"],
+                timeout=60,
+            )
+            if output:
+                import base64
+                kubeconfig_content = base64.b64decode(output).decode("utf-8")
+                mgmt_kubeconfig.write_text(kubeconfig_content)
+                self.log.progress(f"Successfully extracted kubeconfig to: {mgmt_kubeconfig}")
+                return mgmt_kubeconfig
+        except Exception as e:
+            self.log.warning(f"Could not extract kubeconfig from secret: {e}")
+
+        return None
+
     def _run_mcc_deployment(self) -> None:
         """Deploy MCC management cluster."""
         self.log.phase_start("mcc_deployment", "Deploying MCC management cluster")
@@ -661,26 +710,31 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
                 kind_kubeconfig = str(Path.home() / ".kube" / "kind-config-clusterapi")
 
             # Check if management cluster is already accessible (resume scenario)
-            # Try multiple possible kubeconfig locations
+            # Try multiple possible kubeconfig locations (use absolute paths)
             possible_kubeconfigs = [
-                base_dir / f"kubeconfig-{self.config.mcc_cluster_name}",
+                (bootstrap_dir / f"kubeconfig-{self.config.mcc_cluster_name}").resolve(),
+                (base_dir / f"kubeconfig-{self.config.mcc_cluster_name}").resolve(),
                 Path.home() / f"kubeconfig-{self.config.mcc_cluster_name}",
                 Path(f"/root/kubeconfig-{self.config.mcc_cluster_name}"),
-                base_dir / "kaas-bootstrap" / f"kubeconfig-{self.config.mcc_cluster_name}",
             ]
 
             # Also check state for previously saved kubeconfig
             saved_kubeconfig = self.state.get_kubeconfig("mcc")
             if saved_kubeconfig:
-                possible_kubeconfigs.insert(0, Path(saved_kubeconfig))
+                possible_kubeconfigs.insert(0, Path(saved_kubeconfig).resolve())
 
             mgmt_kubeconfig = None
             for kc_path in possible_kubeconfigs:
                 self.log.progress(f"Checking for kubeconfig at: {kc_path}")
-                if self._is_mgmt_cluster_accessible(str(kc_path)):
-                    mgmt_kubeconfig = kc_path
-                    self.log.progress(f"Found accessible management cluster kubeconfig: {kc_path}")
+                if kc_path.exists() and self._is_mgmt_cluster_accessible(str(kc_path)):
+                    mgmt_kubeconfig = kc_path.resolve()  # Always use absolute path
+                    self.log.progress(f"Found accessible management cluster kubeconfig: {mgmt_kubeconfig}")
                     break
+
+            # If no kubeconfig found, try to regenerate it
+            if mgmt_kubeconfig is None:
+                self.log.progress("No existing kubeconfig found, attempting to regenerate...")
+                mgmt_kubeconfig = self._regenerate_mgmt_kubeconfig(bootstrap_dir)
 
             if mgmt_kubeconfig and self._is_mgmt_cluster_accessible(str(mgmt_kubeconfig)):
                 self.log.progress("Management cluster already accessible - skipping Kind-based operations")
@@ -722,8 +776,9 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
                 return
 
             # If we didn't find an accessible mgmt kubeconfig, set the expected path for later
+            # container-cloud generates kubeconfig in cwd (bootstrap_dir), use absolute path
             if mgmt_kubeconfig is None:
-                mgmt_kubeconfig = base_dir / f"kubeconfig-{self.config.mcc_cluster_name}"
+                mgmt_kubeconfig = (bootstrap_dir / f"kubeconfig-{self.config.mcc_cluster_name}").resolve()
 
             templates = [
                 "mcc/bootstrapregion.yaml.template",
@@ -975,6 +1030,24 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
 
         self.log.progress("Bootstrap pivot completed successfully")
 
+    def _is_mosk_cluster_ready(self, kubeconfig: str, namespace: str) -> bool:
+        """Check if MOSK cluster is already deployed and ready."""
+        try:
+            output = run_command_output(
+                ["kubectl", "--kubeconfig", kubeconfig, "-n", namespace,
+                 "get", "cluster", "-o", "json"],
+                timeout=30,
+            )
+            data = json.loads(output)
+            items = data.get("items", [data]) if "items" in data else [data]
+            for item in items:
+                provider_status = item.get("status", {}).get("providerStatus", {})
+                if provider_status.get("ready") is True:
+                    return True
+            return False
+        except Exception:
+            return False
+
     def _run_mosk_deployment(self) -> None:
         """Deploy MOSK cluster."""
         self.log.phase_start("mosk_deployment", "Deploying MOSK cluster")
@@ -985,9 +1058,46 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
             mgmt_kubeconfig = self.state.get_kubeconfig("mcc")
             namespace = self.config.mosk_namespace
 
+            # Fallback kubeconfig locations if state doesn't have it (use absolute paths)
+            bootstrap_dir = base_dir / "kaas-bootstrap"
+            if not mgmt_kubeconfig or not Path(mgmt_kubeconfig).exists():
+                possible_paths = [
+                    (bootstrap_dir / f"kubeconfig-{self.config.mcc_cluster_name}").resolve(),
+                    (base_dir / f"kubeconfig-{self.config.mcc_cluster_name}").resolve(),
+                    Path.home() / f"kubeconfig-{self.config.mcc_cluster_name}",
+                    Path(f"/root/kubeconfig-{self.config.mcc_cluster_name}"),
+                ]
+                for p in possible_paths:
+                    if p.exists():
+                        mgmt_kubeconfig = str(p.resolve())
+                        self.state.set_kubeconfig("mcc", mgmt_kubeconfig)
+                        self.log.progress(f"Found MCC kubeconfig at: {mgmt_kubeconfig}")
+                        break
+
+            if not mgmt_kubeconfig:
+                raise RuntimeError("MCC kubeconfig not found. Please run MCC deployment first.")
+
             # Validate namespace format
             if not _validate_namespace(namespace):
                 raise ValueError(f"Invalid namespace format: {namespace}")
+
+            # Fast-track: Check if MOSK cluster is already ready (resume scenario)
+            if self._is_mosk_cluster_ready(mgmt_kubeconfig, namespace):
+                self.log.progress("MOSK cluster already ready - checking for kubeconfig")
+                mosk_kubeconfig_path = base_dir / "mosk.kubeconfig"
+                if mosk_kubeconfig_path.exists():
+                    self.state.set_kubeconfig("mosk", str(mosk_kubeconfig_path))
+                    self.state.set_phase(DeploymentPhase.MOSK_READY)
+                    self.log.phase_complete("mosk_deployment")
+                    return
+                else:
+                    # Generate kubeconfig for already-ready cluster
+                    self.log.progress("Generating MOSK kubeconfig for existing cluster")
+                    mosk_kubeconfig = self._get_mosk_kubeconfig(mgmt_kubeconfig, namespace)
+                    self.state.set_kubeconfig("mosk", str(mosk_kubeconfig))
+                    self.state.set_phase(DeploymentPhase.MOSK_READY)
+                    self.log.phase_complete("mosk_deployment")
+                    return
 
             if not self.state.get_version("mosk_release"):
                 self._detect_mosk_release(mgmt_kubeconfig)
@@ -1117,6 +1227,24 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
 
         return mosk_kubeconfig
 
+    def _is_openstack_deployed(self, kubeconfig: str) -> bool:
+        """Check if OpenStack is already deployed and ready."""
+        try:
+            output = run_command_output(
+                ["kubectl", "--kubeconfig", kubeconfig, "-n", "openstack",
+                 "get", "osdplst", "-o", "json"],
+                timeout=30,
+            )
+            data = json.loads(output)
+            items = data.get("items", [data]) if "items" in data else [data]
+            for item in items:
+                controller = item.get("status", {}).get("controller", "")
+                if controller == "APPLIED":
+                    return True
+            return False
+        except Exception:
+            return False
+
     def _run_openstack_deployment(self) -> None:
         """Deploy OpenStack on MOSK cluster."""
         self.log.phase_start("openstack_deployment", "Deploying OpenStack")
@@ -1125,6 +1253,29 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
         try:
             base_dir = Path(self.config.base_dir)
             mosk_kubeconfig = self.state.get_kubeconfig("mosk")
+
+            # Fallback kubeconfig locations if state doesn't have it (use absolute paths)
+            if not mosk_kubeconfig or not Path(mosk_kubeconfig).exists():
+                possible_paths = [
+                    (base_dir / "mosk.kubeconfig").resolve(),
+                    Path.home() / "mosk.kubeconfig",
+                    Path("/root/mosk.kubeconfig"),
+                ]
+                for p in possible_paths:
+                    if p.exists():
+                        mosk_kubeconfig = str(p.resolve())
+                        self.state.set_kubeconfig("mosk", mosk_kubeconfig)
+                        self.log.progress(f"Found MOSK kubeconfig at: {mosk_kubeconfig}")
+                        break
+
+            if not mosk_kubeconfig:
+                raise RuntimeError("MOSK kubeconfig not found. Please run MOSK deployment first.")
+
+            # Fast-track: Check if OpenStack is already deployed (resume scenario)
+            if self._is_openstack_deployed(mosk_kubeconfig):
+                self.log.progress("OpenStack already deployed - skipping deployment")
+                self.log.phase_complete("openstack_deployment")
+                return
 
             self.log.progress("Waiting for Ceph cluster to be healthy")
             self._wait_for_ceph_healthy(mosk_kubeconfig)
@@ -1435,8 +1586,13 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
         self.log.resource_ready("lcmmachines", "")
 
     def _wait_for_ceph_healthy(self, kubeconfig: str, timeout: int = 3600) -> None:
-        """Wait for Ceph cluster to be healthy."""
+        """Wait for Ceph cluster to be healthy.
+
+        Accepts HEALTH_OK (fully healthy) or HEALTH_WARN (operational with warnings).
+        HEALTH_ERR will continue waiting.
+        """
         self.log.progress("Waiting for Ceph cluster health")
+        final_health = [None]  # Use list to capture in closure
 
         def check() -> Tuple[bool, str]:
             try:
@@ -1447,17 +1603,31 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
                     timeout=60,
                 )
                 health = output.strip()
-                return health == "HEALTH_OK", health
+                final_health[0] = health
+
+                # Accept both HEALTH_OK and HEALTH_WARN
+                # HEALTH_WARN means cluster is operational but has warnings
+                if health == "HEALTH_OK":
+                    return True, health
+                elif health.startswith("HEALTH_WARN"):
+                    return True, health
+                else:
+                    return False, health
             except Exception as e:
                 return False, str(e)
 
         wait_for_condition(
             check,
-            "Ceph HEALTH_OK",
+            "Ceph HEALTH_OK or HEALTH_WARN",
             timeout=timeout,
             interval=self.config.poll_interval,
             progress_fn=lambda s: self.log.progress(f"Ceph health: {s}"),
         )
+
+        # Log warning if cluster is in HEALTH_WARN state
+        if final_health[0] and final_health[0].startswith("HEALTH_WARN"):
+            self.log.warning(f"Ceph cluster has warnings: {final_health[0]}")
+            self.log.warning("Proceeding with deployment - cluster is operational")
 
         self.log.resource_ready("ceph", "cluster")
 
