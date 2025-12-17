@@ -1087,17 +1087,29 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
                 mosk_kubeconfig_path = base_dir / "mosk.kubeconfig"
                 if mosk_kubeconfig_path.exists():
                     self.state.set_kubeconfig("mosk", str(mosk_kubeconfig_path))
-                    self.state.set_phase(DeploymentPhase.MOSK_READY)
-                    self.log.phase_complete("mosk_deployment")
-                    return
                 else:
                     # Generate kubeconfig for already-ready cluster
                     self.log.progress("Generating MOSK kubeconfig for existing cluster")
                     mosk_kubeconfig = self._get_mosk_kubeconfig(mgmt_kubeconfig, namespace)
                     self.state.set_kubeconfig("mosk", str(mosk_kubeconfig))
-                    self.state.set_phase(DeploymentPhase.MOSK_READY)
-                    self.log.phase_complete("mosk_deployment")
-                    return
+
+                # Still need to apply MiraCeph if not done yet (resume scenario)
+                mosk_dir = base_dir / "mosk"
+                miraceph_step = "apply_09-miraceph"
+                if not self.state.is_step_completed(miraceph_step):
+                    self.log.progress("Applying MiraCeph (resume scenario)")
+                    # Ensure MOSK release is detected for template context
+                    if not self.state.get_version("mosk_release"):
+                        self._detect_mosk_release(mgmt_kubeconfig)
+                    self.templates.update_templates_with_config()
+                    miraceph_path = self.templates.generate_miraceph_manifest(str(mosk_dir))
+                    self._apply_template(Path(miraceph_path), mgmt_kubeconfig)
+                else:
+                    self.log.progress("MiraCeph already applied")
+
+                self.state.set_phase(DeploymentPhase.MOSK_READY)
+                self.log.phase_complete("mosk_deployment")
+                return
 
             if not self.state.get_version("mosk_release"):
                 self._detect_mosk_release(mgmt_kubeconfig)
