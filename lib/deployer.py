@@ -47,17 +47,46 @@ def _validate_namespace(namespace: str) -> bool:
 class Deployer:
     """Main deployment orchestrator for MCC/MOSK."""
 
-    def __init__(self, config_path: str = "config.yaml"):
-        self.config = Config(config_path)
-        self.state = StateManager(self.config.state_file, backup_on_change=True)
+    def __init__(self, config_path: str = "config.yaml", resume: bool = False):
+        from datetime import datetime
 
+        self.config = Config(config_path)
+
+        # Determine deployment directory
+        if resume:
+            # Try to find existing deployment to resume
+            latest_deployment = self.config.find_latest_deployment()
+            if latest_deployment:
+                self.deployment_dir = latest_deployment
+                # Extract deployment_id from directory name
+                self.deployment_id = latest_deployment.name.replace(f"{self.config.deployment_name}_", "")
+            else:
+                # No previous deployment found, create new
+                self.deployment_id = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+                self.deployment_dir = self.config.create_deployment_dir(self.deployment_id)
+        else:
+            # Create new deployment directory
+            self.deployment_id = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            self.deployment_dir = self.config.create_deployment_dir(self.deployment_id)
+
+        # Initialize state manager with deployment directory
+        self.state = StateManager(
+            state_file=self.config.state_file,
+            deployment_dir=self.deployment_dir,
+            backup_on_change=True
+        )
+
+        # Setup logging with deployment directory
         setup_logging(
             level=self.config.log_level,
             log_file=self.config.log_file,
             log_format=self.config.log_format,
+            deployment_dir=self.deployment_dir,
         )
 
         self.log = DeploymentLogger("deployer")
+        self.log.progress(f"Deployment directory: {self.deployment_dir}")
+
         self.infrastructure = InfrastructureManager(self.config, self.state, self.log)
         self.vm_manager = VMManager(self.config, self.state, self.log)
         self.templates = TemplateGenerator(self.config, self.state, self.vm_manager, self.log)

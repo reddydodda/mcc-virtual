@@ -125,15 +125,24 @@ class StateManager:
     - State querying
     """
 
-    def __init__(self, state_file: str = "deployment_state.json", backup_on_change: bool = True):
+    def __init__(
+        self,
+        state_file: str = "deployment_state.json",
+        deployment_dir: Optional[Path] = None,
+        backup_on_change: bool = True
+    ):
         """
         Initialize state manager.
 
         Args:
-            state_file: Path to state file
+            state_file: Name of state file (not full path)
+            deployment_dir: Directory to store state file. If None, uses current directory.
             backup_on_change: Whether to backup state before changes
         """
-        self.state_file = Path(state_file)
+        if deployment_dir:
+            self.state_file = Path(deployment_dir) / state_file
+        else:
+            self.state_file = Path(state_file)
         self.backup_on_change = backup_on_change
         self._state: Optional[DeploymentState] = None
 

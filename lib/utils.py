@@ -34,7 +34,7 @@ class CommandError(Exception):
 
 
 def run_command(
-    command: str,
+    command: Any,  # str or List[str]
     check: bool = True,
     capture_output: bool = True,
     timeout: Optional[int] = None,
@@ -45,7 +45,7 @@ def run_command(
     Run a shell command.
 
     Args:
-        command: Command to run
+        command: Command to run (string for shell execution, list for direct execution)
         check: Whether to raise exception on failure
         capture_output: Whether to capture stdout/stderr
         timeout: Command timeout in seconds
@@ -58,7 +58,10 @@ def run_command(
     Raises:
         CommandError: If command fails and check=True
     """
-    logger.debug(f"Running command: {command}")
+    # Determine if we should use shell mode
+    use_shell = isinstance(command, str)
+    cmd_str = command if use_shell else " ".join(command)
+    logger.debug(f"Running command: {cmd_str}")
 
     # Merge environment
     cmd_env = os.environ.copy()
@@ -68,7 +71,7 @@ def run_command(
     try:
         result = subprocess.run(
             command,
-            shell=True,
+            shell=use_shell,
             capture_output=capture_output,
             text=True,
             timeout=timeout,
@@ -78,7 +81,7 @@ def run_command(
 
         if check and result.returncode != 0:
             raise CommandError(
-                command=command,
+                command=cmd_str,
                 exit_code=result.returncode,
                 stdout=result.stdout or "",
                 stderr=result.stderr or "",
@@ -88,7 +91,7 @@ def run_command(
 
     except subprocess.TimeoutExpired as e:
         raise CommandError(
-            command=command,
+            command=cmd_str,
             exit_code=-1,
             stdout="",
             stderr=f"Command timed out after {timeout} seconds",
@@ -96,7 +99,7 @@ def run_command(
 
 
 def run_command_output(
-    command: str,
+    command: Any,  # str or List[str]
     timeout: Optional[int] = None,
     env: Optional[Dict[str, str]] = None,
     cwd: Optional[str] = None,
@@ -105,7 +108,7 @@ def run_command_output(
     Run a command and return stdout.
 
     Args:
-        command: Command to run
+        command: Command to run (string or list)
         timeout: Command timeout in seconds
         env: Environment variables
         cwd: Working directory

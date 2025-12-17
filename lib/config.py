@@ -494,3 +494,87 @@ class Config:
             "openstack_size": self.openstack_size,
             "openstack_dvr_enabled": self.openstack_dvr_enabled,
         }
+
+    # ==========================================================================
+    # Deployment output directory management
+    # ==========================================================================
+
+    @property
+    def deployments_base_dir(self) -> Path:
+        """Get base directory for all deployments."""
+        return self.base_dir / "deployments"
+
+    def get_deployment_dir(self, deployment_id: str) -> Path:
+        """
+        Get the deployment-specific output directory.
+
+        Directory structure:
+            deployments/
+                {deployment_name}_{deployment_id}/
+                    deployment_state.json
+                    deployment.log
+
+        Args:
+            deployment_id: Deployment ID (timestamp)
+
+        Returns:
+            Path to deployment directory
+        """
+        dir_name = f"{self.deployment_name}_{deployment_id}"
+        return self.deployments_base_dir / dir_name
+
+    def create_deployment_dir(self, deployment_id: str) -> Path:
+        """
+        Create a new deployment directory.
+
+        Args:
+            deployment_id: Deployment ID (typically timestamp)
+
+        Returns:
+            Path to created deployment directory
+        """
+        deploy_dir = self.get_deployment_dir(deployment_id)
+        deploy_dir.mkdir(parents=True, exist_ok=True)
+        return deploy_dir
+
+    def find_latest_deployment(self) -> Optional[Path]:
+        """
+        Find the most recent deployment directory.
+
+        Returns:
+            Path to latest deployment directory or None
+        """
+        if not self.deployments_base_dir.exists():
+            return None
+
+        prefix = f"{self.deployment_name}_"
+        deployments = [
+            d for d in self.deployments_base_dir.iterdir()
+            if d.is_dir() and d.name.startswith(prefix)
+        ]
+
+        if not deployments:
+            return None
+
+        # Sort by modification time (most recent first)
+        deployments.sort(key=lambda d: d.stat().st_mtime, reverse=True)
+        return deployments[0]
+
+    def list_deployments(self) -> List[Path]:
+        """
+        List all deployment directories for this deployment name.
+
+        Returns:
+            List of deployment directory paths, sorted by date (newest first)
+        """
+        if not self.deployments_base_dir.exists():
+            return []
+
+        prefix = f"{self.deployment_name}_"
+        deployments = [
+            d for d in self.deployments_base_dir.iterdir()
+            if d.is_dir() and d.name.startswith(prefix)
+        ]
+
+        deployments.sort(key=lambda d: d.stat().st_mtime, reverse=True)
+        return deployments

@@ -106,16 +106,18 @@ def setup_logging(
     log_format: str = "text",
     max_size_mb: int = 100,
     backup_count: int = 5,
+    deployment_dir: Optional[Path] = None,
 ) -> None:
     """
     Configure logging for the deployment system.
 
     Args:
         level: Log level (DEBUG, INFO, WARNING, ERROR)
-        log_file: Optional log file path
+        log_file: Optional log file name (not full path)
         log_format: Log format (json, text)
         max_size_mb: Maximum log file size in MB
         backup_count: Number of backup files to keep
+        deployment_dir: Directory to store log file. If None, uses current directory.
     """
     root_logger = logging.getLogger("mcc_deploy")
     root_logger.setLevel(getattr(logging, level.upper()))
@@ -131,7 +133,10 @@ def setup_logging(
 
     # File handler if specified
     if log_file:
-        log_path = Path(log_file)
+        if deployment_dir:
+            log_path = Path(deployment_dir) / log_file
+        else:
+            log_path = Path(log_file)
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
         file_handler = RotatingFileHandler(

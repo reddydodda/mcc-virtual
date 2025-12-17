@@ -90,8 +90,12 @@ class Jinja2Engine:
             return '\n'.join(' ' * spaces + line if line.strip() else line for line in lines)
 
         def mac_address(prefix: str, index: int) -> str:
-            """Generate a MAC address from prefix and index."""
-            suffix = f"{index:02d}" if index < 10 else f"{index}{index}" if index < 10 else f"{index:02d}"
+            """Generate a MAC address from prefix and index.
+
+            For index < 10: use repeated digit (e.g., 1 -> "11", 2 -> "22")
+            For index >= 10: use zero-padded format (e.g., 10 -> "10", 11 -> "11")
+            """
+            suffix = f"{index}{index}" if index < 10 else f"{index:02d}"
             return f"{prefix}:{suffix}"
 
         self.env.filters['to_yaml'] = to_yaml

@@ -118,9 +118,9 @@ class TemplateGenerator:
                 "ip_address": vm.get("ip_address", f"192.168.122.{10 + vm['index']}"),
             })
 
-        # Get versions
-        mcc_kaas_release = self.state.get_version("mcc_kaas_release") or self.config.mcc_kaas_release
-        mcc_cluster_release = self.state.get_version("mcc_cluster_release") or self.config.mcc_cluster_release
+        # Get versions (detected during deployment, stored in state)
+        mcc_kaas_release = self.state.get_version("mcc_kaas_release") or ""
+        mcc_cluster_release = self.state.get_version("mcc_cluster_release") or ""
 
         context = {
             # Node information
@@ -194,8 +194,8 @@ class TemplateGenerator:
                 "vbmc_port": vm["vbmc_port"],
             })
 
-        # Get versions
-        mosk_release = self.state.get_version("mosk_release") or self.config.mosk_release
+        # Get versions (detected during deployment, stored in state)
+        mosk_release = self.state.get_version("mosk_release") or ""
         openstack_version = self.config.get_raw("openstack.version", "antelope")
 
         context = {

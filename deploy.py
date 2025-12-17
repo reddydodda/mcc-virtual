@@ -194,7 +194,7 @@ def run_remote_command(host: str, command: str, args_list: list, verbose: bool =
 def cmd_deploy(args: argparse.Namespace) -> int:
     """Run full deployment."""
     try:
-        deployer = Deployer(args.config)
+        deployer = Deployer(args.config, resume=args.resume)
         deployer.deploy(
             skip_validation=args.skip_validation,
             resume=args.resume,
@@ -236,7 +236,8 @@ def cmd_validate(args: argparse.Namespace) -> int:
 def cmd_status(args: argparse.Namespace) -> int:
     """Show deployment status."""
     try:
-        deployer = Deployer(args.config)
+        # Use resume=True to find existing deployment state
+        deployer = Deployer(args.config, resume=True)
         deployer.status()
         return 0
     except Exception as e:
@@ -247,7 +248,8 @@ def cmd_status(args: argparse.Namespace) -> int:
 def cmd_cleanup(args: argparse.Namespace) -> int:
     """Clean up deployment."""
     try:
-        deployer = Deployer(args.config)
+        # Use resume=True to find existing deployment state
+        deployer = Deployer(args.config, resume=True)
         deployer.cleanup(full=args.full)
         print("Cleanup completed successfully")
         return 0
@@ -262,7 +264,8 @@ def cmd_cleanup(args: argparse.Namespace) -> int:
 def cmd_create_vms(args: argparse.Namespace) -> int:
     """Create VMs only."""
     try:
-        deployer = Deployer(args.config)
+        # Use resume=True to continue existing deployment
+        deployer = Deployer(args.config, resume=True)
         deployer.vm_manager.create_all_vms()
         print("VMs created successfully")
         return 0
@@ -277,7 +280,8 @@ def cmd_create_vms(args: argparse.Namespace) -> int:
 def cmd_setup_infra(args: argparse.Namespace) -> int:
     """Setup infrastructure only."""
     try:
-        deployer = Deployer(args.config)
+        # Use resume=True to continue existing deployment
+        deployer = Deployer(args.config, resume=True)
         deployer.infrastructure.setup_all()
         print("Infrastructure setup completed successfully")
         return 0
@@ -292,7 +296,8 @@ def cmd_setup_infra(args: argparse.Namespace) -> int:
 def cmd_bootstrap(args: argparse.Namespace) -> int:
     """Bootstrap only - clone bootstrap directory and update templates."""
     try:
-        deployer = Deployer(args.config)
+        # Use resume=True to continue existing deployment
+        deployer = Deployer(args.config, resume=True)
 
         print("=" * 60)
         print("BOOTSTRAP PHASE")
@@ -340,7 +345,8 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
 def cmd_mcc(args: argparse.Namespace) -> int:
     """Deploy MCC cluster and monitor until ready."""
     try:
-        deployer = Deployer(args.config)
+        # Use resume=True to continue existing deployment
+        deployer = Deployer(args.config, resume=True)
 
         print("=" * 60)
         print("MCC DEPLOYMENT PHASE")
@@ -375,7 +381,8 @@ def cmd_mcc(args: argparse.Namespace) -> int:
 def cmd_mosk(args: argparse.Namespace) -> int:
     """Deploy MOSK cluster (requires MCC to be ready)."""
     try:
-        deployer = Deployer(args.config)
+        # Use resume=True to continue existing deployment
+        deployer = Deployer(args.config, resume=True)
 
         print("=" * 60)
         print("MOSK DEPLOYMENT PHASE")
@@ -416,7 +423,8 @@ def cmd_mosk(args: argparse.Namespace) -> int:
 def cmd_all(args: argparse.Namespace) -> int:
     """Run complete deployment - bootstrap, MCC, and MOSK."""
     try:
-        deployer = Deployer(args.config)
+        # Pass resume flag to constructor for proper deployment directory handling
+        deployer = Deployer(args.config, resume=args.resume)
 
         print("=" * 60)
         print("FULL DEPLOYMENT - MCC + MOSK")
