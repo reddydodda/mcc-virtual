@@ -613,6 +613,42 @@ class TemplateGenerator:
 
         self.log.step_complete("update_templates")
 
+    def generate_miraceph_manifest(self, output_dir: str) -> str:
+        """
+        Generate MiraCeph manifest with dynamic TLS certificates.
+
+        MiraCeph replaces deprecated KaaSCephCluster for MOSK 25.2+.
+        This should be called AFTER MOSK cluster is ready.
+
+        Args:
+            output_dir: Output directory for the manifest
+
+        Returns:
+            Path to the generated manifest file
+        """
+        if not self.engine:
+            raise RuntimeError("Template engine not initialized")
+
+        self.log.step_start("generate_miraceph", "Generating MiraCeph manifest")
+
+        # Get MOSK context with TLS certificates
+        context = self._get_mosk_context()
+
+        # Render the template
+        output_path = Path(output_dir) / "09-miraceph.yaml"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        self.engine.render_to_file(
+            "mosk/miraceph.yaml.j2",
+            str(output_path),
+            context
+        )
+
+        self.log.progress(f"Generated MiraCeph manifest: {output_path}")
+        self.log.step_complete("generate_miraceph")
+
+        return str(output_path)
+
     def _update_file(self, filepath: Path, replacements: Dict[str, str]) -> None:
         """
         Update a file with replacements.

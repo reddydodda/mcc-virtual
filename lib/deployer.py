@@ -1123,12 +1123,8 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
                 else:
                     self.log.progress("MOSK machine templates already exist, skipping generation")
 
-            if hasattr(self.templates, 'generate_kcc_manifest'):
-                kcc_file = mosk_dir / "09-kcc.yaml"
-                if not kcc_file.exists():
-                    self.templates.generate_kcc_manifest(str(mosk_dir), namespace)
-                else:
-                    self.log.progress("KCC manifest already exists, skipping generation")
+            # Note: MiraCeph is applied AFTER MOSK cluster is ready (see below)
+            # This replaces deprecated KaaSCephCluster for MOSK 25.2+
 
             templates = [
                 "mosk/01-namespace.yaml",
@@ -1142,7 +1138,6 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
                 "mosk/07-subnet.yaml",
                 "mosk/08-machine/01-machine-ctl.yaml",
                 "mosk/08-machine/02-machine-cmp.yaml",
-                "mosk/09-kcc.yaml",
             ]
 
             self._apply_template(base_dir / "mosk/01-namespace.yaml", mgmt_kubeconfig)
@@ -1181,6 +1176,17 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
             self.log.progress("Generating MOSK kubeconfig")
             mosk_kubeconfig = self._get_mosk_kubeconfig(mgmt_kubeconfig, namespace)
             self.state.set_kubeconfig("mosk", str(mosk_kubeconfig))
+
+            # Apply MiraCeph after MOSK cluster is ready
+            # MiraCeph is applied to management cluster (ceph-lcm-mirantis namespace)
+            # but needs MOSK nodes to be ready for Ceph deployment
+            miraceph_step = "apply_09-miraceph"
+            if not self.state.is_step_completed(miraceph_step):
+                self.log.progress("Generating and applying MiraCeph manifest")
+                miraceph_path = self.templates.generate_miraceph_manifest(str(mosk_dir))
+                self._apply_template(Path(miraceph_path), mgmt_kubeconfig)
+            else:
+                self.log.progress("MiraCeph already applied, skipping")
 
             self.state.set_phase(DeploymentPhase.MOSK_READY)
             self.log.phase_complete("mosk_deployment")

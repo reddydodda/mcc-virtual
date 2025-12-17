@@ -13,6 +13,8 @@ spec:
     value:
       apiVersion: "baremetal.k8s.io/v1alpha1"
       kind: "BareMetalMachineProviderSpec"
+      day1Provisioning: "auto"
+      day1Deployment: "auto"
       bareMetalHostProfile:
         name: mosk-cmp
         namespace: SET_NAMESPACE
@@ -46,6 +48,8 @@ spec:
     value:
       apiVersion: "baremetal.k8s.io/v1alpha1"
       kind: "BareMetalMachineProviderSpec"
+      day1Provisioning: "auto"
+      day1Deployment: "auto"
       bareMetalHostProfile:
         name: mosk-cmp
         namespace: SET_NAMESPACE
@@ -79,6 +83,8 @@ spec:
     value:
       apiVersion: "baremetal.k8s.io/v1alpha1"
       kind: "BareMetalMachineProviderSpec"
+      day1Provisioning: "auto"
+      day1Deployment: "auto"
       bareMetalHostProfile:
         name: mosk-cmp
         namespace: SET_NAMESPACE
