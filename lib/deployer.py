@@ -1094,16 +1094,21 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
                     self.state.set_kubeconfig("mosk", str(mosk_kubeconfig))
 
                 # Still need to apply MiraCeph if not done yet (resume scenario)
+                # MiraCeph is applied on MOSK cluster, not management cluster
                 mosk_dir = base_dir / "mosk"
                 miraceph_step = "apply_09-miraceph"
+                mosk_kubeconfig = self.state.get_kubeconfig("mosk")
+                if not mosk_kubeconfig:
+                    mosk_kubeconfig = str(base_dir / "mosk.kubeconfig")
+
                 if not self.state.is_step_completed(miraceph_step):
-                    self.log.progress("Applying MiraCeph (resume scenario)")
+                    self.log.progress("Applying MiraCeph on MOSK cluster (resume scenario)")
                     # Ensure MOSK release is detected for template context
                     if not self.state.get_version("mosk_release"):
                         self._detect_mosk_release(mgmt_kubeconfig)
                     self.templates.update_templates_with_config()
                     miraceph_path = self.templates.generate_miraceph_manifest(str(mosk_dir))
-                    self._apply_template(Path(miraceph_path), mgmt_kubeconfig)
+                    self._apply_template(Path(miraceph_path), mosk_kubeconfig)
                 else:
                     self.log.progress("MiraCeph already applied")
 
@@ -1190,13 +1195,12 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
             self.state.set_kubeconfig("mosk", str(mosk_kubeconfig))
 
             # Apply MiraCeph after MOSK cluster is ready
-            # MiraCeph is applied to management cluster (ceph-lcm-mirantis namespace)
-            # but needs MOSK nodes to be ready for Ceph deployment
+            # MiraCeph is applied to MOSK cluster (ceph-lcm-mirantis namespace)
             miraceph_step = "apply_09-miraceph"
             if not self.state.is_step_completed(miraceph_step):
-                self.log.progress("Generating and applying MiraCeph manifest")
+                self.log.progress("Generating and applying MiraCeph manifest on MOSK cluster")
                 miraceph_path = self.templates.generate_miraceph_manifest(str(mosk_dir))
-                self._apply_template(Path(miraceph_path), mgmt_kubeconfig)
+                self._apply_template(Path(miraceph_path), str(mosk_kubeconfig))
             else:
                 self.log.progress("MiraCeph already applied, skipping")
 

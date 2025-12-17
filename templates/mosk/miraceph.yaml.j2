@@ -5,9 +5,11 @@
 apiVersion: lcm.mirantis.com/v1alpha1
 kind: MiraCeph
 metadata:
-  name: {{ mosk_namespace }}
+  name: rook-ceph
   namespace: ceph-lcm-mirantis
 spec:
+  rookNamespace: rook-ceph
+  dashboard: false
   network:
     publicNet: {{ ceph_public_network }}
     clusterNet: {{ ceph_cluster_network }}
@@ -27,7 +29,7 @@ spec:
     - name: mosk-cmp-{{ '%02d' | format(node.index) }}
       devices:
 {% for device in ceph_osd_devices %}
-        - fullPath: /dev/{{ device }}
+        - fullpath: /dev/{{ device }}
           config:
             deviceClass: hdd
 {% endfor %}
@@ -38,7 +40,7 @@ spec:
     - name: mosk-storage-{{ '%02d' | format(node.index) }}
       devices:
 {% for device in ceph_osd_devices %}
-        - fullPath: /dev/{{ device }}
+        - fullpath: /dev/{{ device }}
           config:
             deviceClass: hdd
 {% endfor %}
@@ -58,10 +60,12 @@ spec:
   objectStorage:
     rgw:
       name: {{ ceph_rgw_store_name | default('rgw-store') }}
-      instances: {{ ceph_rgw_instances | default(3) }}
-      port: 80
-      securePort: 8443
       preservePoolsOnDelete: false
+      gateway:
+        allNodes: false
+        instances: {{ ceph_rgw_instances | default(3) }}
+        port: 80
+        securePort: 8443
       SSLCert:
         cacert: |
 {{ tls_ca_cert | indent(10, first=True) }}
