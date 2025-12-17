@@ -99,7 +99,7 @@ class Deployer:
         try:
             if resume and self.state.can_resume():
                 resume_phase = self.state.get_resume_phase()
-                self.log.progress(f"Resuming from phase: {resume_phase.value}")
+                self.log.progress(f"Resuming from phase: {resume_phase.name_str}")
             else:
                 if self.state.can_resume():
                     self.log.warning("Previous deployment found. Use --resume to continue or --clean to start fresh.")
@@ -144,7 +144,7 @@ class Deployer:
     def _run_infrastructure(self) -> None:
         """Run infrastructure setup."""
         current_phase = self.state.get_phase()
-        if current_phase.value > DeploymentPhase.INFRASTRUCTURE_SETUP.value:
+        if current_phase > DeploymentPhase.INFRASTRUCTURE_SETUP:
             self.log.step_skipped("infrastructure", "Already completed")
             return
         self.infrastructure.setup_all()
@@ -152,7 +152,7 @@ class Deployer:
     def _run_vm_creation(self) -> None:
         """Run VM creation."""
         current_phase = self.state.get_phase()
-        if current_phase.value > DeploymentPhase.VM_CREATION.value:
+        if current_phase > DeploymentPhase.VM_CREATION:
             self.log.step_skipped("vm_creation", "Already completed")
             return
         self.vm_manager.create_all_vms()

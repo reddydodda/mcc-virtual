@@ -16,21 +16,55 @@ from typing import Dict, List, Optional, Any
 
 class DeploymentPhase(Enum):
     """Deployment phases for tracking progress."""
-    NOT_STARTED = "not_started"
-    INFRASTRUCTURE_SETUP = "infrastructure_setup"
-    VM_CREATION = "vm_creation"
-    BOOTSTRAP_DOWNLOAD = "bootstrap_download"
-    MCC_BOOTSTRAP = "mcc_bootstrap"
-    MCC_DEPLOYMENT = "mcc_deployment"
-    MCC_PROVISIONING = "mcc_provisioning"
-    MCC_READY = "mcc_ready"
-    MOSK_SETUP = "mosk_setup"
-    MOSK_PROVISIONING = "mosk_provisioning"
-    MOSK_READY = "mosk_ready"
-    CEPH_DEPLOYMENT = "ceph_deployment"
-    OPENSTACK_DEPLOYMENT = "openstack_deployment"
-    COMPLETED = "completed"
-    FAILED = "failed"
+    NOT_STARTED = (0, "not_started")
+    INFRASTRUCTURE_SETUP = (1, "infrastructure_setup")
+    VM_CREATION = (2, "vm_creation")
+    BOOTSTRAP_DOWNLOAD = (3, "bootstrap_download")
+    MCC_BOOTSTRAP = (4, "mcc_bootstrap")
+    MCC_DEPLOYMENT = (5, "mcc_deployment")
+    MCC_PROVISIONING = (6, "mcc_provisioning")
+    MCC_READY = (7, "mcc_ready")
+    MOSK_SETUP = (8, "mosk_setup")
+    MOSK_PROVISIONING = (9, "mosk_provisioning")
+    MOSK_READY = (10, "mosk_ready")
+    CEPH_DEPLOYMENT = (11, "ceph_deployment")
+    OPENSTACK_DEPLOYMENT = (12, "openstack_deployment")
+    COMPLETED = (13, "completed")
+    FAILED = (99, "failed")
+
+    def __init__(self, order: int, name: str):
+        self._order = order
+        self._name = name
+
+    @property
+    def order(self) -> int:
+        """Return the phase order for comparison."""
+        return self._order
+
+    @property
+    def name_str(self) -> str:
+        """Return the phase name string."""
+        return self._name
+
+    def __lt__(self, other):
+        if isinstance(other, DeploymentPhase):
+            return self._order < other._order
+        return NotImplemented
+
+    def __le__(self, other):
+        if isinstance(other, DeploymentPhase):
+            return self._order <= other._order
+        return NotImplemented
+
+    def __gt__(self, other):
+        if isinstance(other, DeploymentPhase):
+            return self._order > other._order
+        return NotImplemented
+
+    def __ge__(self, other):
+        if isinstance(other, DeploymentPhase):
+            return self._order >= other._order
+        return NotImplemented
 
 
 class StepStatus(Enum):
@@ -84,7 +118,7 @@ class StepState:
 class DeploymentState:
     """Complete deployment state."""
     deployment_id: str = ""
-    phase: str = DeploymentPhase.NOT_STARTED.value
+    phase: str = DeploymentPhase.NOT_STARTED.name_str
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
     steps: Dict[str, Dict[str, Any]] = field(default_factory=dict)
@@ -202,7 +236,7 @@ class StateManager:
         Args:
             phase: New deployment phase
         """
-        self.state.phase = phase.value
+        self.state.phase = phase.name_str
         self.save()
 
     def get_phase(self) -> DeploymentPhase:
@@ -212,7 +246,11 @@ class StateManager:
         Returns:
             Current phase
         """
-        return DeploymentPhase(self.state.phase)
+        # Look up phase by name string
+        for p in DeploymentPhase:
+            if p.name_str == self.state.phase:
+                return p
+        return DeploymentPhase.NOT_STARTED
 
     def start_step(self, name: str) -> StepState:
         """
@@ -413,7 +451,7 @@ class StateManager:
 
     def mark_completed(self) -> None:
         """Mark deployment as completed."""
-        self.state.phase = DeploymentPhase.COMPLETED.value
+        self.state.phase = DeploymentPhase.COMPLETED.name_str
         self.state.completed_at = datetime.utcnow().isoformat()
         self.save()
 
@@ -424,7 +462,7 @@ class StateManager:
         Args:
             error: Error message
         """
-        self.state.phase = DeploymentPhase.FAILED.value
+        self.state.phase = DeploymentPhase.FAILED.name_str
         self.state.completed_at = datetime.utcnow().isoformat()
         self.state.add_error("deployment", error)
         self.save()
@@ -456,7 +494,7 @@ class StateManager:
             # Find the last completed phase
             phase_order = list(DeploymentPhase)
             for phase in reversed(phase_order):
-                phase_step = f"phase_{phase.value}"
+                phase_step = f"phase_{phase.name_str}"
                 if self.is_step_completed(phase_step):
                     # Return the next phase
                     idx = phase_order.index(phase)
