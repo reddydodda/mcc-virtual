@@ -26,6 +26,8 @@ spec:
           - mgr
           - mon
 {% endfor %}
+{% if is_hyperconverged %}
+      # Hyperconverged mode: OSDs on compute nodes
 {% for node in mosk_compute_nodes %}
       mosk-cmp-{{ '%02d' | format(node.index) }}:
         storageDevices:
@@ -36,6 +38,19 @@ spec:
               osdsPerDevice: "1"
 {% endfor %}
 {% endfor %}
+{% else %}
+      # Dedicated storage mode: OSDs on storage nodes
+{% for node in mosk_storage_nodes %}
+      mosk-storage-{{ '%02d' | format(node.index) }}:
+        storageDevices:
+{% for device in ceph_osd_devices %}
+          - name: {{ device }}
+            config:
+              deviceClass: hdd
+              osdsPerDevice: "1"
+{% endfor %}
+{% endfor %}
+{% endif %}
     objectStorage:
       rgw:
         name: rgw-store

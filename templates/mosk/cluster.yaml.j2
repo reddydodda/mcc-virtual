@@ -22,7 +22,7 @@ spec:
       apiVersion: baremetal.k8s.io/v1alpha1
       kind: BaremetalClusterProviderSpec
       release: {{ mosk_release }}
-      dedicatedControlPlane: false
+      dedicatedControlPlane: {{ dedicated_control_plane | lower }}
       helmReleases:
         - name: metallb
           values:

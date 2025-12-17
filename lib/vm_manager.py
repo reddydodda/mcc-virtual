@@ -136,14 +136,16 @@ class VMManager:
             ))
 
         # MOSK Compute VMs (configurable count)
+        # In hyperconverged mode: includes Ceph disks
+        # In dedicated mode: no Ceph disks (pure compute)
         mosk_cmp = self.config.mosk_compute_topology
         for i in range(1, mosk_cmp.count + 1):
-            # Generate disks for compute nodes (including Ceph disks)
+            # Generate disks for compute nodes
             disks = [
                 {"size_gb": mosk_cmp.resources.disk_root_gb, "name": "disk1"},
                 {"size_gb": mosk_cmp.resources.disk_local_gb, "name": "disk2"},
             ]
-            # Add Ceph disks
+            # Add Ceph disks (only in hyperconverged mode - ceph_disk_count is 0 in dedicated mode)
             for j in range(mosk_cmp.resources.ceph_disk_count):
                 disks.append({
                     "size_gb": mosk_cmp.resources.disk_ceph_gb,
@@ -151,9 +153,7 @@ class VMManager:
                 })
 
             # For 2-digit MAC, pad single digits
-            mac_suffix = f"{i:02d}" if i < 10 else f"{i}{i}" if i < 10 else f"{i:02d}"
-            if mosk_cmp.count <= 9:
-                mac_suffix = f"{i}{i}"
+            mac_suffix = f"{i}{i}" if i < 10 else f"{i:02d}"
 
             vms.append(VMDefinition(
                 name=f"mosk-cmp-{i}{i}" if i < 10 else f"mosk-cmp-{i:02d}",
@@ -165,6 +165,36 @@ class VMManager:
                 role="mosk-cmp",
                 index=i,
             ))
+
+        # MOSK Storage VMs (only in dedicated mode)
+        mosk_storage = self.config.mosk_storage_topology
+        if mosk_storage:
+            for i in range(1, mosk_storage.count + 1):
+                # Generate disks for storage nodes (with Ceph disks)
+                disks = [
+                    {"size_gb": mosk_storage.resources.disk_root_gb, "name": "disk1"},
+                    {"size_gb": mosk_storage.resources.disk_local_gb, "name": "disk2"},
+                ]
+                # Add Ceph disks
+                for j in range(mosk_storage.resources.ceph_disk_count):
+                    disks.append({
+                        "size_gb": mosk_storage.resources.disk_ceph_gb,
+                        "name": f"disk{j + 3}",
+                    })
+
+                # For 2-digit MAC, pad single digits
+                mac_suffix = f"{i}{i}" if i < 10 else f"{i:02d}"
+
+                vms.append(VMDefinition(
+                    name=f"mosk-storage-{i}{i}" if i < 10 else f"mosk-storage-{i:02d}",
+                    mac_address=f"{mosk_storage.mac_prefix}:{mac_suffix}",
+                    vbmc_port=mosk_storage.vbmc_port_start + i - 1,
+                    ram_mb=mosk_storage.resources.ram_mb,
+                    vcpus=mosk_storage.resources.vcpus,
+                    disks=disks,
+                    role="mosk-storage",
+                    index=i,
+                ))
 
         return vms
 
@@ -439,7 +469,7 @@ class VMManager:
         Get information about VMs.
 
         Args:
-            role: Optional role filter (mcc, mosk-ctl, mosk-cmp)
+            role: Optional role filter (mcc, mosk-ctl, mosk-cmp, mosk-storage)
 
         Returns:
             List of VM information dictionaries

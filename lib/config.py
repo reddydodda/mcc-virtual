@@ -129,10 +129,25 @@ class Config:
         if mosk_ctl_count != 3:
             raise ValueError(f"MOSK control plane must have exactly 3 nodes, got {mosk_ctl_count}")
 
-        # Validate MOSK compute count is at least 3 for Ceph quorum
+        # Validate storage mode
+        storage_mode = self._raw_config.get("topology", {}).get("storage_mode", "hyperconverged")
+        if storage_mode not in ["hyperconverged", "dedicated"]:
+            raise ValueError(f"Invalid storage_mode: {storage_mode}. Must be 'hyperconverged' or 'dedicated'")
+
         mosk_cmp_count = self._raw_config.get("topology", {}).get("mosk_compute", {}).get("count", 0)
-        if mosk_cmp_count < 3:
-            raise ValueError(f"MOSK compute nodes must be at least 3 for Ceph, got {mosk_cmp_count}")
+
+        if storage_mode == "hyperconverged":
+            # In hyperconverged mode, compute nodes run Ceph - need at least 3 for quorum
+            if mosk_cmp_count < 3:
+                raise ValueError(f"MOSK compute nodes must be at least 3 for Ceph quorum in hyperconverged mode, got {mosk_cmp_count}")
+        else:
+            # In dedicated mode, storage nodes run Ceph - need at least 3 for quorum
+            mosk_storage_count = self._raw_config.get("topology", {}).get("mosk_storage", {}).get("count", 0)
+            if mosk_storage_count < 3:
+                raise ValueError(f"MOSK storage nodes must be at least 3 for Ceph quorum in dedicated mode, got {mosk_storage_count}")
+            # Compute nodes can be any number >= 1 in dedicated mode
+            if mosk_cmp_count < 1:
+                raise ValueError(f"MOSK compute nodes must be at least 1, got {mosk_cmp_count}")
 
     # ==========================================================================
     # Property accessors for configuration values
@@ -291,10 +306,33 @@ class Config:
         )
 
     @property
+    def storage_mode(self) -> str:
+        """Get storage deployment mode: 'hyperconverged' or 'dedicated'."""
+        return self._raw_config.get("topology", {}).get("storage_mode", "hyperconverged")
+
+    @property
+    def is_hyperconverged(self) -> bool:
+        """Check if using hyperconverged storage mode."""
+        return self.storage_mode == "hyperconverged"
+
+    @property
     def mosk_compute_topology(self) -> VMTopology:
-        """Get MOSK compute VM topology."""
+        """Get MOSK compute VM topology.
+
+        In hyperconverged mode: includes Ceph disks
+        In dedicated mode: no Ceph disks (pure compute)
+        """
         cfg = self._raw_config.get("topology", {}).get("mosk_compute", {})
         resources_cfg = cfg.get("resources", {})
+
+        # Only include Ceph disks in hyperconverged mode
+        if self.is_hyperconverged:
+            ceph_gb = resources_cfg.get("disk_ceph_gb", 50)
+            ceph_count = resources_cfg.get("ceph_disk_count", 3)
+        else:
+            ceph_gb = 0
+            ceph_count = 0
+
         return VMTopology(
             count=cfg.get("count", 3),
             resources=VMResources(
@@ -302,21 +340,50 @@ class Config:
                 vcpus=resources_cfg.get("vcpus", 12),
                 disk_root_gb=resources_cfg.get("disk_root_gb", 100),
                 disk_local_gb=resources_cfg.get("disk_local_gb", 50),
-                disk_ceph_gb=resources_cfg.get("disk_ceph_gb", 50),
-                ceph_disk_count=resources_cfg.get("ceph_disk_count", 3),
+                disk_ceph_gb=ceph_gb,
+                ceph_disk_count=ceph_count,
             ),
             mac_prefix=cfg.get("mac_prefix", "52:54:00:c5:93"),
             vbmc_port_start=cfg.get("vbmc_port_start", 6251),
         )
 
     @property
+    def mosk_storage_topology(self) -> Optional[VMTopology]:
+        """Get MOSK storage VM topology (only in dedicated mode).
+
+        Returns None in hyperconverged mode.
+        """
+        if self.is_hyperconverged:
+            return None
+
+        cfg = self._raw_config.get("topology", {}).get("mosk_storage", {})
+        resources_cfg = cfg.get("resources", {})
+        return VMTopology(
+            count=cfg.get("count", 3),
+            resources=VMResources(
+                ram_mb=resources_cfg.get("ram_mb", 16384),
+                vcpus=resources_cfg.get("vcpus", 4),
+                disk_root_gb=resources_cfg.get("disk_root_gb", 50),
+                disk_local_gb=resources_cfg.get("disk_local_gb", 20),
+                disk_ceph_gb=resources_cfg.get("disk_ceph_gb", 100),
+                ceph_disk_count=resources_cfg.get("ceph_disk_count", 3),
+            ),
+            mac_prefix=cfg.get("mac_prefix", "52:54:00:c5:94"),
+            vbmc_port_start=cfg.get("vbmc_port_start", 6261),
+        )
+
+    @property
     def total_vm_count(self) -> int:
         """Get total number of VMs."""
-        return (
+        count = (
             self.mcc_topology.count +
             self.mosk_control_topology.count +
             self.mosk_compute_topology.count
         )
+        # Add storage nodes in dedicated mode
+        if not self.is_hyperconverged and self.mosk_storage_topology:
+            count += self.mosk_storage_topology.count
+        return count
 
     # Kubernetes configuration
     @property
@@ -328,6 +395,15 @@ class Config:
     def mosk_namespace(self) -> str:
         """Get MOSK namespace."""
         return self._raw_config.get("kubernetes", {}).get("mosk", {}).get("namespace", "mosk")
+
+    @property
+    def mosk_dedicated_control_plane(self) -> bool:
+        """Get MOSK dedicated control plane setting.
+
+        When True: Control plane nodes are dedicated (no OpenStack workloads)
+        When False: Control plane nodes can run OpenStack workloads (dev/test)
+        """
+        return self._raw_config.get("kubernetes", {}).get("mosk", {}).get("dedicated_control_plane", False)
 
     # Bootstrap configuration
     @property

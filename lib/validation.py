@@ -181,7 +181,14 @@ class PreflightValidator:
             self.config.mcc_topology.count * self.config.mcc_topology.resources.ram_mb +
             self.config.mosk_control_topology.count * self.config.mosk_control_topology.resources.ram_mb +
             self.config.mosk_compute_topology.count * self.config.mosk_compute_topology.resources.ram_mb
-        ) // 1024  # Convert to GB
+        )
+        # Add storage nodes if in dedicated mode
+        if self.config.mosk_storage_topology:
+            required += (
+                self.config.mosk_storage_topology.count *
+                self.config.mosk_storage_topology.resources.ram_mb
+            )
+        required = required // 1024  # Convert to GB
 
         self._add_result(
             "memory",
@@ -200,6 +207,12 @@ class PreflightValidator:
             self.config.mosk_control_topology.count * self.config.mosk_control_topology.resources.vcpus +
             self.config.mosk_compute_topology.count * self.config.mosk_compute_topology.resources.vcpus
         )
+        # Add storage nodes if in dedicated mode
+        if self.config.mosk_storage_topology:
+            required += (
+                self.config.mosk_storage_topology.count *
+                self.config.mosk_storage_topology.resources.vcpus
+            )
 
         self._add_result(
             "cpu_cores",
@@ -224,11 +237,23 @@ class PreflightValidator:
             ) +
             self.config.mosk_compute_topology.count * (
                 self.config.mosk_compute_topology.resources.disk_root_gb +
-                self.config.mosk_compute_topology.resources.disk_local_gb +
+                self.config.mosk_compute_topology.resources.disk_local_gb
+            )
+        )
+        # Add Ceph disks based on storage mode
+        if self.config.mosk_storage_topology:
+            # Dedicated mode: Ceph disks on storage nodes
+            required += self.config.mosk_storage_topology.count * (
+                self.config.mosk_storage_topology.resources.disk_root_gb +
+                self.config.mosk_storage_topology.resources.disk_ceph_gb *
+                self.config.mosk_storage_topology.resources.ceph_disk_count
+            )
+        else:
+            # Hyperconverged mode: Ceph disks on compute nodes
+            required += self.config.mosk_compute_topology.count * (
                 self.config.mosk_compute_topology.resources.disk_ceph_gb *
                 self.config.mosk_compute_topology.resources.ceph_disk_count
             )
-        )
 
         # Add buffer
         required = int(required * 1.2)
@@ -410,17 +435,27 @@ class PreflightValidator:
             (443, "HTTPS for API"),
         ]
 
-        # Add vBMC ports
-        vbmc_start = min(
+        # Collect all vBMC port ranges
+        port_starts = [
             self.config.mcc_topology.vbmc_port_start,
             self.config.mosk_control_topology.vbmc_port_start,
             self.config.mosk_compute_topology.vbmc_port_start,
-        )
-        vbmc_end = max(
+        ]
+        port_ends = [
             self.config.mcc_topology.vbmc_port_start + self.config.mcc_topology.count,
             self.config.mosk_control_topology.vbmc_port_start + self.config.mosk_control_topology.count,
             self.config.mosk_compute_topology.vbmc_port_start + self.config.mosk_compute_topology.count,
-        )
+        ]
+        # Include storage nodes if in dedicated mode
+        if self.config.mosk_storage_topology:
+            port_starts.append(self.config.mosk_storage_topology.vbmc_port_start)
+            port_ends.append(
+                self.config.mosk_storage_topology.vbmc_port_start +
+                self.config.mosk_storage_topology.count
+            )
+
+        vbmc_start = min(port_starts)
+        vbmc_end = max(port_ends)
 
         unavailable = []
         for port, desc in ports_to_check:
@@ -471,7 +506,7 @@ class PreflightValidator:
             existing = [vm for vm in output.split("\n") if vm.strip()]
 
             conflicting = []
-            vm_prefixes = ["mcc-", "mosk-ctl-", "mosk-cmp-"]
+            vm_prefixes = ["mcc-", "mosk-ctl-", "mosk-cmp-", "mosk-storage-"]
             for vm in existing:
                 for prefix in vm_prefixes:
                     if vm.startswith(prefix):
@@ -553,6 +588,55 @@ class PreflightValidator:
                 "Custom credentials provided via environment variables",
             )
 
+    def check_ceph_disk_configuration(self) -> None:
+        """Check Ceph disk configuration consistency."""
+        osd_devices = self.config.ceph_osd_devices
+        device_count = len(osd_devices)
+
+        # Check consistency with topology configuration
+        if self.config.is_hyperconverged:
+            # Hyperconverged: Ceph disks on compute nodes
+            expected_count = self.config.mosk_compute_topology.resources.ceph_disk_count
+            node_type = "compute"
+        else:
+            # Dedicated: Ceph disks on storage nodes
+            if self.config.mosk_storage_topology:
+                expected_count = self.config.mosk_storage_topology.resources.ceph_disk_count
+                node_type = "storage"
+            else:
+                # No storage topology defined in dedicated mode
+                self._add_result(
+                    "ceph_disk_configuration",
+                    False,
+                    "Dedicated storage mode requires mosk_storage topology configuration",
+                )
+                return
+
+        if device_count != expected_count:
+            self._add_result(
+                "ceph_disk_configuration",
+                False,
+                f"Ceph OSD devices mismatch: {device_count} devices configured "
+                f"(storage.ceph.osd_devices), but {node_type} topology expects "
+                f"{expected_count} disks (ceph_disk_count)",
+                details={
+                    "configured_devices": osd_devices,
+                    "expected_count": expected_count,
+                    "mode": self.config.storage_mode,
+                },
+            )
+        else:
+            self._add_result(
+                "ceph_disk_configuration",
+                True,
+                f"Ceph configuration valid: {device_count} OSD devices for "
+                f"{self.config.storage_mode} mode",
+                details={
+                    "devices": osd_devices,
+                    "mode": self.config.storage_mode,
+                },
+            )
+
     def run_all_checks(self) -> List[ValidationResult]:
         """
         Run all validation checks.
@@ -581,6 +665,7 @@ class PreflightValidator:
             ("Existing VMs", self.check_existing_vms),
             ("Existing Bridges", self.check_existing_bridges),
             ("Environment Variables", self.check_environment_variables),
+            ("Ceph Disk Configuration", self.check_ceph_disk_configuration),
         ]
 
         for name, check_fn in checks:

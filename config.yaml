@@ -109,6 +109,11 @@ storage:
 # VIRTUAL MACHINE TOPOLOGY
 # =============================================================================
 topology:
+  # Storage deployment mode:
+  #   - hyperconverged: Ceph runs on compute nodes (default, fewer VMs, less resources)
+  #   - dedicated: Separate storage nodes for Ceph (better I/O isolation, more VMs)
+  storage_mode: hyperconverged
+
   # MCC Management Cluster (fixed at 3)
   mcc:
     count: 3
@@ -131,18 +136,34 @@ topology:
     mac_prefix: "52:54:00:c5:92"
     vbmc_port_start: 6241
 
-  # MOSK Compute/Storage Nodes (configurable)
+  # MOSK Compute Nodes
+  # In hyperconverged mode: includes Ceph OSD disks
+  # In dedicated mode: pure compute, no Ceph disks
   mosk_compute:
-    count: 3  # Configurable: minimum 3 for Ceph quorum
+    count: 3
     resources:
       ram_mb: 49152
       vcpus: 12
       disk_root_gb: 100
       disk_local_gb: 50
-      disk_ceph_gb: 50  # Additional Ceph OSD disks
-      ceph_disk_count: 3  # Number of Ceph disks per node
+      disk_ceph_gb: 50  # Only used in hyperconverged mode
+      ceph_disk_count: 3  # Only used in hyperconverged mode
     mac_prefix: "52:54:00:c5:93"
     vbmc_port_start: 6251
+
+  # MOSK Storage Nodes (only used when storage_mode: dedicated)
+  # Minimum 3 nodes required for Ceph quorum
+  mosk_storage:
+    count: 3
+    resources:
+      ram_mb: 16384
+      vcpus: 4
+      disk_root_gb: 50
+      disk_local_gb: 20
+      disk_ceph_gb: 100
+      ceph_disk_count: 3
+    mac_prefix: "52:54:00:c5:94"
+    vbmc_port_start: 6261
 
 # =============================================================================
 # KUBERNETES CLUSTER SETTINGS
@@ -152,12 +173,17 @@ kubernetes:
     cluster_name: "kaas-mgmt"
     service_cidr: "10.233.0.0/18"
     pod_cidr: "10.233.64.0/18"
-    dedicated_control_plane: false
+    # Note: MCC always uses dedicatedControlPlane: false (hardcoded)
+    # to allow StackLight/Ceph on control plane nodes
+
   mosk:
     cluster_name: "mosk"
     namespace: "mosk"
     service_cidr: "172.31.128.0/18"
     pod_cidr: "172.31.0.0/17"
+    # When true: control plane nodes are dedicated (no OpenStack workloads)
+    # When false: control plane nodes can run OpenStack workloads (dev/test)
+    dedicated_control_plane: false
 
 # =============================================================================
 # OPENSTACK CONFIGURATION

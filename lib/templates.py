@@ -137,21 +137,29 @@ class TemplateGenerator:
             "mcc_kaas_release": mcc_kaas_release,
             "mcc_cluster_release": mcc_cluster_release,
 
-            # Network configuration
-            "mcc_pod_cidr": self.config.get_raw("network.mcc.pod_cidr", "10.244.0.0/16"),
-            "mcc_service_cidr": self.config.get_raw("network.mcc.service_cidr", "10.96.0.0/16"),
-            "mcc_lcm_cidr": self.config.get_raw("network.mcc.lcm_cidr", "192.168.122.0/24"),
-            "mcc_lcm_gateway": self.config.get_raw("network.mcc.lcm_gateway", "192.168.122.1"),
-            "mcc_lcm_range_start": self.config.get_raw("network.mcc.lcm_range_start", "192.168.122.10"),
-            "mcc_lcm_range_end": self.config.get_raw("network.mcc.lcm_range_end", "192.168.122.100"),
-            "mcc_metallb_range_start": self.config.get_raw("network.mcc.metallb_range_start", "192.168.122.200"),
-            "mcc_metallb_range_end": self.config.get_raw("network.mcc.metallb_range_end", "192.168.122.220"),
+            # Cluster settings
+            "mcc_cluster_name": self.config.mcc_cluster_name,
+
+            # Network configuration (defaults match config.yaml)
+            "mcc_pod_cidr": self.config.get_raw("kubernetes.mcc.pod_cidr", "10.233.64.0/18"),
+            "mcc_service_cidr": self.config.get_raw("kubernetes.mcc.service_cidr", "10.233.0.0/18"),
+            "mcc_node_cidr": self.config.get_raw("network.bridges.lcm.cidr", "192.168.123.0/24"),
+            "mcc_lcm_cidr": self.config.get_raw("network.bridges.lcm.cidr", "192.168.123.0/24"),
+            "mcc_lcm_gateway": self.config.get_raw("network.bridges.lcm.gateway", "192.168.123.1"),
+            "mcc_lcm_range_start": self.config.get_raw("network.mcc.lcm_range_start", "192.168.123.10"),
+            "mcc_lcm_range_end": self.config.get_raw("network.mcc.lcm_range_end", "192.168.123.100"),
+            "mcc_metallb_range_start": self.config.get_raw("network.mcc.metallb_range_start", "192.168.123.200"),
+            "mcc_metallb_range_end": self.config.get_raw("network.mcc.metallb_range_end", "192.168.123.220"),
 
             # DNS
-            "dns_servers": self.config.get_raw("network.dns_servers", ["8.8.8.8", "8.8.4.4"]),
+            "dns_servers": self.config.dns_servers,
 
             # Storage
             "mcc_system_disk": self.config.get_raw("vm.mcc.system_disk", "/dev/vda"),
+
+            # Monitoring/StackLight configuration
+            "stacklight_elasticsearch_size": self.config.get_raw("openstack.monitoring.elasticsearch_size", "30Gi"),
+            "stacklight_prometheus_size": self.config.get_raw("openstack.monitoring.prometheus_size", "16Gi"),
 
             # TLS certificates
             "tls_ca_cert": self.certificates.ca_cert,
@@ -173,6 +181,7 @@ class TemplateGenerator:
         """
         mosk_ctl_vms = self.vm_manager.get_vm_info(role="mosk-ctl")
         mosk_cmp_vms = self.vm_manager.get_vm_info(role="mosk-cmp")
+        mosk_storage_vms = self.vm_manager.get_vm_info(role="mosk-storage")
 
         # Build control node list
         mosk_control_nodes = []
@@ -194,6 +203,16 @@ class TemplateGenerator:
                 "vbmc_port": vm["vbmc_port"],
             })
 
+        # Build storage node list (only in dedicated mode)
+        mosk_storage_nodes = []
+        for vm in mosk_storage_vms:
+            mosk_storage_nodes.append({
+                "index": vm["index"],
+                "name": vm["name"],
+                "mac_address": vm["mac_address"],
+                "vbmc_port": vm["vbmc_port"],
+            })
+
         # Get versions (detected during deployment, stored in state)
         mosk_release = self.state.get_version("mosk_release") or ""
         openstack_version = self.config.get_raw("openstack.version", "antelope")
@@ -202,9 +221,17 @@ class TemplateGenerator:
             # Namespace
             "mosk_namespace": self.config.mosk_namespace,
 
+            # Cluster settings
+            "dedicated_control_plane": self.config.mosk_dedicated_control_plane,
+
+            # Storage mode
+            "storage_mode": self.config.storage_mode,
+            "is_hyperconverged": self.config.is_hyperconverged,
+
             # Node information
             "mosk_control_nodes": mosk_control_nodes,
             "mosk_compute_nodes": mosk_compute_nodes,
+            "mosk_storage_nodes": mosk_storage_nodes,
             "kvm_node_ip": self.kvm_node_ip,
 
             # Credentials
@@ -355,7 +382,7 @@ class TemplateGenerator:
         context = self.build_mosk_context()
         rendered = {}
 
-        # List of MOSK templates to render
+        # Base MOSK templates (always rendered)
         mosk_templates = [
             ("mosk/namespace.yaml.j2", "01-namespace/namespace.yaml"),
             ("mosk/cluster.yaml.j2", "02-cluster/cluster.yaml"),
@@ -372,6 +399,15 @@ class TemplateGenerator:
             ("mosk/osdpl-secret.yaml.j2", "08-openstack/01-osdpl-secret.yaml"),
             ("mosk/osdpl.yaml.j2", "08-openstack/02-osdpl.yaml"),
         ]
+
+        # Add storage node templates only in dedicated mode
+        if not self.config.is_hyperconverged:
+            mosk_templates.extend([
+                ("mosk/bmh-storage.yaml.j2", "03-bmh/03-bmh-storage.yaml"),
+                ("mosk/bmhp-storage.yaml.j2", "05-profiles/03-bmhp-storage.yaml"),
+                ("mosk/machines-storage.yaml.j2", "06-machines/03-machines-storage.yaml"),
+            ])
+            self.log.progress("Including dedicated storage node templates")
 
         for template_name, output_name in mosk_templates:
             try:
