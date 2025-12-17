@@ -84,6 +84,7 @@ spec:
             values:
               config:
                 customHostnamesEnabled: true
+                pauseBeforeDeployment: false
           - name: kaas-ipam
             values: {}
         management:

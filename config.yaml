@@ -1,0 +1,244 @@
+# MCC/MOSK Virtual Deployment Configuration
+# Enterprise-Ready Configuration File
+# Version: 2.0.0
+
+# =============================================================================
+# DEPLOYMENT IDENTIFICATION
+# =============================================================================
+deployment:
+  name: "mcc-mosk-virtual"
+  description: "Virtual MCC/MOSK deployment environment"
+  environment: "development"  # development, staging, production
+
+# =============================================================================
+# VERSION REQUIREMENTS
+# =============================================================================
+versions:
+  # Target MCC version (leave empty for latest)
+  mcc_version: "2.30.0"
+  # Minimum required versions (auto-detected if not specified)
+  mcc_minimum: "2.30.0"
+  mosk_minimum: "25.2"
+  openstack: "antelope"  # antelope, bobcat, caracal
+
+# =============================================================================
+# NETWORK CONFIGURATION
+# =============================================================================
+network:
+  # Auto-detect primary interface if not specified
+  primary_interface: "auto"  # auto, bond0, ens0, eth0
+
+  # Virtual network bridges
+  bridges:
+    pxe:
+      name: "br-pxe"
+      cidr: "192.168.122.0/24"
+      gateway: "192.168.122.1"
+      dhcp_range:
+        start: "192.168.122.20"
+        end: "192.168.122.39"
+    lcm:
+      name: "br-lcm"
+      cidr: "192.168.123.0/24"
+      gateway: "192.168.123.1"
+    tenant:
+      name: "br-others"
+      cidr: "192.168.124.0/24"
+      gateway: "192.168.124.1"
+    floating:
+      name: "br-fip"
+      cidr: "192.168.125.0/24"
+      gateway: "192.168.125.1"
+
+  # MetalLB IP pools
+  metallb:
+    mcc:
+      default_pool: "192.168.123.16-192.168.123.29"
+      pxe_pool: "192.168.122.11-192.168.122.19"
+    mosk:
+      pool: "192.168.123.121-192.168.123.149"
+
+  # Kubernetes API endpoints
+  api_endpoints:
+    mcc: "192.168.123.10"
+    mosk: "192.168.123.100"
+
+  # DNS servers (used by OpenStack)
+  dns_servers:
+    - "8.8.8.8"
+    - "1.1.1.1"
+
+# =============================================================================
+# STORAGE CONFIGURATION
+# =============================================================================
+storage:
+  # VM disk images location
+  images_path: "/var/lib/libvirt/images"
+
+  # Auto-mount largest unmounted disk
+  auto_mount: true
+
+  # Ceph configuration
+  ceph:
+    cluster_network: "192.168.123.0/24"
+    public_network: "192.168.123.0/24"
+    # OSD devices (auto-detected on compute nodes)
+    osd_devices:
+      - "sdb"
+      - "sdc"
+      - "sdd"
+    pools:
+      - name: "kubernetes"
+        role: "kubernetes"
+        size: 2
+        default: true
+      - name: "volumes"
+        role: "volumes"
+        size: 2
+      - name: "vms"
+        role: "vms"
+        size: 2
+      - name: "images"
+        role: "images"
+        size: 2
+      - name: "backup"
+        role: "backup"
+        size: 2
+
+# =============================================================================
+# VIRTUAL MACHINE TOPOLOGY
+# =============================================================================
+topology:
+  # MCC Management Cluster (fixed at 3)
+  mcc:
+    count: 3
+    resources:
+      ram_mb: 32768
+      vcpus: 8
+      disk_root_gb: 100
+      disk_local_gb: 50
+    mac_prefix: "52:54:00:c5:91"
+    vbmc_port_start: 6231
+
+  # MOSK Control Plane (fixed at 3)
+  mosk_control:
+    count: 3
+    resources:
+      ram_mb: 32768
+      vcpus: 8
+      disk_root_gb: 100
+      disk_local_gb: 50
+    mac_prefix: "52:54:00:c5:92"
+    vbmc_port_start: 6241
+
+  # MOSK Compute/Storage Nodes (configurable)
+  mosk_compute:
+    count: 3  # Configurable: minimum 3 for Ceph quorum
+    resources:
+      ram_mb: 49152
+      vcpus: 12
+      disk_root_gb: 100
+      disk_local_gb: 50
+      disk_ceph_gb: 50  # Additional Ceph OSD disks
+      ceph_disk_count: 3  # Number of Ceph disks per node
+    mac_prefix: "52:54:00:c5:93"
+    vbmc_port_start: 6251
+
+# =============================================================================
+# KUBERNETES CLUSTER SETTINGS
+# =============================================================================
+kubernetes:
+  mcc:
+    cluster_name: "kaas-mgmt"
+    service_cidr: "10.233.0.0/18"
+    pod_cidr: "10.233.64.0/18"
+    dedicated_control_plane: false
+  mosk:
+    cluster_name: "mosk"
+    namespace: "mosk"
+    service_cidr: "172.31.128.0/18"
+    pod_cidr: "172.31.0.0/17"
+
+# =============================================================================
+# OPENSTACK CONFIGURATION
+# =============================================================================
+openstack:
+  preset: "compute"  # compute, compute-tf, compute-dvr
+  size: "tiny"  # tiny, small, medium, large
+  features:
+    dvr_enabled: true
+    database_backup: true
+    nova_cpu_allocation_ratio: 4.0
+  networks:
+    external_bridge: "br-fip"
+    physnet: "physnet1"
+    octavia_lb_cidr: "172.31.240.0/20"
+  monitoring:
+    stacklight_enabled: true
+    cluster_size: "small"
+    retention_days: 2
+
+# =============================================================================
+# TLS CERTIFICATE CONFIGURATION
+# =============================================================================
+tls:
+  # Domain for wildcard certificates
+  domain: "it.just.works"
+
+  # Certificate validity (days)
+  validity_days: 3650
+
+  # RSA key size
+  key_size: 4096
+
+  # Additional API IPs to include in SAN
+  api_ips:
+    - "192.168.123.10"
+    - "192.168.123.100"
+
+# =============================================================================
+# BOOTSTRAP CONFIGURATION
+# =============================================================================
+bootstrap:
+  pxe_ip: "192.168.122.2"
+  pxe_mask: "24"
+  pxe_bridge: "br-pxe"
+
+  # License file location
+  license_file: "mirantis.lic"
+
+# =============================================================================
+# TIMEOUTS AND RETRIES
+# =============================================================================
+timeouts:
+  # Resource provisioning timeouts (seconds)
+  bmh_available: 3600     # BMH to become available
+  bmh_provisioned: 7200   # BMH to finish provisioning
+  machine_ready: 3600     # Machine to become Ready
+  cluster_ready: 1800     # Cluster to become Ready
+  ceph_healthy: 3600      # Ceph cluster to become healthy
+  osdpl_applied: 7200     # OpenStack deployment to complete
+
+  # Polling interval (seconds)
+  poll_interval: 30
+
+  # Retry settings
+  max_retries: 3
+  retry_delay: 60
+
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  file: "deployment.log"
+  format: "json"  # json, text
+  max_size_mb: 100
+  backup_count: 5
+
+# =============================================================================
+# STATE MANAGEMENT
+# =============================================================================
+state:
+  file: "deployment_state.json"
+  backup_on_change: true

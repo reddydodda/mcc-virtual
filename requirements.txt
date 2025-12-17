@@ -1,0 +1,11 @@
+# MCC/MOSK Virtual Deployment Requirements
+# Python 3.8+
+
+# Core dependencies
+PyYAML>=6.0
+Jinja2>=3.1.0
+
+# Optional: For enhanced functionality
+# cryptography>=41.0.0  # Alternative to openssl CLI for cert generation
+# paramiko>=3.0.0       # For SSH operations
+# rich>=13.0.0          # For enhanced terminal output
