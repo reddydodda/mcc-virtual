@@ -632,7 +632,7 @@ class TemplateGenerator:
         self.log.step_start("generate_miraceph", "Generating MiraCeph manifest")
 
         # Get MOSK context with TLS certificates
-        context = self._get_mosk_context()
+        context = self.build_mosk_context()
 
         # Render the template
         output_path = Path(output_dir) / "09-miraceph.yaml"
