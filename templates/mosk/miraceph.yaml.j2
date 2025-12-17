@@ -27,6 +27,8 @@ spec:
     # Hyperconverged mode: OSDs on compute nodes
 {% for node in mosk_compute_nodes %}
     - name: mosk-cmp-{{ '%02d' | format(node.index) }}
+      roles:
+        - osd
       devices:
 {% for device in ceph_osd_devices %}
         - fullpath: /dev/{{ device }}
@@ -38,6 +40,8 @@ spec:
     # Dedicated storage mode: OSDs on storage nodes
 {% for node in mosk_storage_nodes %}
     - name: mosk-storage-{{ '%02d' | format(node.index) }}
+      roles:
+        - osd
       devices:
 {% for device in ceph_osd_devices %}
         - fullpath: /dev/{{ device }}
