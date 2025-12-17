@@ -226,6 +226,11 @@ class Config:
         return self._raw_config.get("versions", {}).get("mosk_minimum", "25.2")
 
     @property
+    def mosk_version(self) -> Optional[str]:
+        """Get target MOSK version (None means use latest)."""
+        return self._raw_config.get("versions", {}).get("mosk_version")
+
+    @property
     def openstack_version(self) -> str:
         """Get OpenStack version."""
         return self._raw_config.get("versions", {}).get("openstack", "antelope")

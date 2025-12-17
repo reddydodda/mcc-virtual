@@ -1310,8 +1310,32 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
             self.log.step_failed(step_name, str(e))
             raise
 
+    def _parse_mosk_version(self, release_name: str) -> str:
+        """Extract MOSK version from release name.
+
+        Release name format: mosk-{mke-major}-{mke-minor}-{mke-patch}-{mosk-major}-{mosk-minor}[-{mosk-patch}]
+        Example: mosk-21-0-3-25-2-3 -> 25.2.3
+                 mosk-21-0-0-25-2 -> 25.2
+        """
+        # Remove 'mosk-' prefix
+        parts = release_name.replace("mosk-", "").split("-")
+
+        # First 3 parts are MKE version, rest are MOSK version
+        if len(parts) >= 5:
+            mosk_parts = parts[3:]  # Skip first 3 (MKE version)
+            return ".".join(mosk_parts)
+        elif len(parts) >= 2:
+            # Fallback for unexpected formats
+            return ".".join(parts)
+        else:
+            return release_name.replace("mosk-", "")
+
     def _detect_mosk_release(self, kubeconfig: str) -> None:
-        """Detect latest MOSK release from cluster using JSON parsing."""
+        """Detect MOSK release from cluster.
+
+        If mosk_version is specified in config, use that specific version.
+        Otherwise, detect and use the latest available version.
+        """
         self.log.progress("Detecting MOSK release")
 
         output = run_command_output(
@@ -1327,19 +1351,50 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
                 mosk_releases.append(name)
 
         if not mosk_releases:
-            raise ValueError("Could not detect MOSK release")
+            raise ValueError("Could not detect any MOSK releases in the cluster")
 
-        # Sort by version and get latest
-        mosk_releases.sort(key=lambda x: [int(p) if p.isdigit() else p for p in x.replace("mosk-", "").split(".")])
-        mosk_release = mosk_releases[-1]
+        # Check if a specific MOSK version is configured
+        target_version = self.config.mosk_version if hasattr(self.config, 'mosk_version') else None
 
-        version = mosk_release.replace("mosk-", "")
-        if compare_versions(version, self.config.mosk_minimum_version) < 0:
+        if target_version:
+            # Find release matching the target version
+            self.log.progress(f"Looking for MOSK version: {target_version}")
+            matching_releases = []
+            for release in mosk_releases:
+                mosk_ver = self._parse_mosk_version(release)
+                if mosk_ver.startswith(target_version) or target_version in release:
+                    matching_releases.append(release)
+
+            if matching_releases:
+                # Sort and pick the latest matching release
+                matching_releases.sort(
+                    key=lambda x: [int(p) if p.isdigit() else p for p in self._parse_mosk_version(x).split(".")]
+                )
+                mosk_release = matching_releases[-1]
+            else:
+                self.log.warning(f"No release matching version {target_version} found, using latest")
+                target_version = None  # Fall through to latest
+
+        if not target_version:
+            # Sort by MOSK version (extracted from release name) and get latest
+            mosk_releases.sort(
+                key=lambda x: [int(p) if p.isdigit() else 0 for p in self._parse_mosk_version(x).split(".")]
+            )
+            mosk_release = mosk_releases[-1]
+
+        # Extract and validate MOSK version
+        version = self._parse_mosk_version(mosk_release)
+        self.log.progress(f"Selected MOSK release: {mosk_release} (version {version})")
+
+        # Check minimum version requirement
+        min_version = self.config.mosk_minimum_version
+        if min_version and compare_versions(version, min_version) < 0:
             raise ValueError(
-                f"MOSK version {version} is below minimum required {self.config.mosk_minimum_version}"
+                f"MOSK version {version} is below minimum required {min_version}"
             )
 
         self.state.set_version("mosk_release", mosk_release)
+        self.state.set_version("mosk_version", version)
         self.log.progress(f"MOSK Release: {mosk_release}")
 
     def _wait_for_resource_json(
