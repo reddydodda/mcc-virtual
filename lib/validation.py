@@ -218,6 +218,7 @@ class PreflightValidator:
             "cpu_cores",
             available >= required,
             f"{available} cores available, {required} required",
+            critical=False,  # Warning only - allow overcommit
             details={"available": available, "required": required},
         )
 
@@ -269,6 +270,7 @@ class PreflightValidator:
             "disk_space",
             has_enough,
             f"{available}GB available at {check_path}, {required}GB required",
+            critical=False,  # Warning only - thin provisioning may allow it
             details={"available_gb": available, "required_gb": required, "path": check_path},
         )
 
