@@ -165,9 +165,27 @@ class InfrastructureManager:
         self.state.start_step(step_name)
 
         try:
+            # Fix any broken dpkg state first (can happen from interrupted installs)
+            self.log.progress("Checking dpkg state")
+            run_command(
+                "sudo DEBIAN_FRONTEND=noninteractive dpkg --configure -a",
+                timeout=300,
+                check=False,  # Don't fail if nothing to configure
+            )
+
             # Update package lists
             self.log.progress("Updating package lists")
-            run_command("sudo apt update", timeout=300)
+            run_command(
+                "sudo DEBIAN_FRONTEND=noninteractive apt-get update",
+                timeout=300,
+            )
+
+            # Fix any broken dependencies
+            run_command(
+                "sudo DEBIAN_FRONTEND=noninteractive apt-get install -f -y",
+                timeout=300,
+                check=False,
+            )
 
             # Install packages
             # Note: docker.io is NOT included here because we install Docker
@@ -199,8 +217,8 @@ class InfrastructureManager:
 
             self.log.progress(f"Installing {len(packages)} packages")
             run_command(
-                f"sudo apt install -y {' '.join(packages)}",
-                timeout=600,
+                f"sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' {' '.join(packages)}",
+                timeout=900,  # 15 minutes - some packages take a while
             )
 
             # Add user to groups
