@@ -620,29 +620,28 @@ Description = vbmc service
             raise
 
     def _configure_firewall(self) -> None:
-        """Configure firewall rules."""
+        """Configure firewall rules for MCC/MOSK deployment."""
         step_name = "configure_firewall"
         self.log.step_start(step_name, "Configuring firewall")
         self.state.start_step(step_name)
 
         try:
-            # Block port 80 (required for bootstrap)
-            self.log.progress("Blocking port 80 for bootstrap")
+            # Disable UFW firewall - MCC/MOSK requires open communication
+            # between VMs, host, and various services
+            result = run_command("which ufw", check=False)
+            if result.returncode == 0:
+                self.log.progress("Disabling UFW firewall for MCC/MOSK deployment")
+                run_command("sudo ufw disable", check=False)
 
-            # Check if rule already exists
+            # Block port 80 via iptables during bootstrap phase
+            # This is required by MCC bootstrap and is removed after pivot
+            self.log.progress("Adding iptables rule to block port 80 for bootstrap")
             result = run_command(
                 "sudo iptables -C INPUT -p tcp --dport 80 -j REJECT 2>/dev/null",
                 check=False,
             )
-
             if result.returncode != 0:
                 run_command("sudo iptables -A INPUT -p tcp --dport 80 -j REJECT")
-
-            # Persist iptables rules
-            try:
-                run_command("sudo netfilter-persistent save", check=False, timeout=30)
-            except Exception:
-                self.log.warning("Could not persist iptables rules")
 
             self.state.complete_step(step_name)
             self.log.step_complete(step_name)
