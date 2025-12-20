@@ -947,38 +947,29 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
         """Wait for the bootstrap pivot to complete with full verification.
 
         Checks multiple sources for pivot completion:
-        1. Management cluster's Cluster object (status.providerStatus.bootstrapStatus.pivotDone)
-        2. Kind cluster's BootstrapRegion (status.pivotDone)
+        1. Management cluster's Cluster object ready status
+        2. Management cluster's bootstrapStatus.pivotDone (if available)
+        3. Kind cluster's BootstrapRegion status.ready
 
-        This handles resume scenarios where the Kind cluster may be gone but the
-        management cluster is already operational.
+        This handles different MCC versions where pivotDone field may not exist.
         """
         self.log.progress("Waiting for bootstrap pivot to complete...")
 
-        # First, check if management cluster already shows pivot complete
-        # This handles resume scenarios where Kind might be gone
         base_dir = Path(self.config.base_dir)
-        mgmt_kubeconfig = base_dir / f"kubeconfig-{self.config.mcc_cluster_name}"
-
-        if mgmt_kubeconfig.exists():
-            try:
-                output = run_command_output(
-                    ["kubectl", "--kubeconfig", str(mgmt_kubeconfig), "get", "cluster", "-o", "json"],
-                    timeout=30,
-                )
-                data = json.loads(output)
-                items = data.get("items", [data]) if "items" in data else [data]
-                for item in items:
-                    bootstrap_status = item.get("status", {}).get("providerStatus", {}).get("bootstrapStatus", {})
-                    if bootstrap_status.get("pivotDone") is True:
-                        self.log.progress("Pivot already completed (verified from management cluster)")
-                        return
-            except Exception as e:
-                self.log.progress(f"Could not check management cluster pivot status: {e}")
+        # Check multiple possible locations for management kubeconfig
+        possible_kubeconfigs = [
+            base_dir / f"kubeconfig-{self.config.mcc_cluster_name}",
+            base_dir / "kaas-bootstrap" / f"kubeconfig-{self.config.mcc_cluster_name}",
+        ]
+        mgmt_kubeconfig = None
+        for kc in possible_kubeconfigs:
+            if kc.exists():
+                mgmt_kubeconfig = kc
+                break
 
         def check_pivot() -> Tuple[bool, str]:
-            # First try management cluster (preferred source after pivot)
-            if mgmt_kubeconfig.exists():
+            # Check management cluster status
+            if mgmt_kubeconfig and mgmt_kubeconfig.exists():
                 try:
                     output = run_command_output(
                         ["kubectl", "--kubeconfig", str(mgmt_kubeconfig), "get", "cluster", "-o", "json"],
@@ -987,13 +978,33 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
                     data = json.loads(output)
                     items = data.get("items", [data]) if "items" in data else [data]
                     for item in items:
-                        bootstrap_status = item.get("status", {}).get("providerStatus", {}).get("bootstrapStatus", {})
-                        if bootstrap_status.get("pivotDone") is True:
-                            return True, "Pivot completed (from management cluster)"
-                except Exception:
-                    pass  # Fall through to Kind check
+                        status = item.get("status", {})
+                        provider_status = status.get("providerStatus", {})
 
-            # Fall back to Kind cluster bootstrapregion check
+                        # Check if cluster is ready
+                        cluster_ready = provider_status.get("ready", False)
+
+                        # Check pivotDone if it exists (some MCC versions)
+                        bootstrap_status = provider_status.get("bootstrapStatus", {})
+                        pivot_done = bootstrap_status.get("pivotDone")
+
+                        # If pivotDone exists and is True, we're done
+                        if pivot_done is True:
+                            return True, "Pivot completed (pivotDone=True)"
+
+                        # If cluster is ready and bootstrapStatus is empty (newer MCC versions),
+                        # check BootstrapRegion instead
+                        if cluster_ready and not bootstrap_status:
+                            # Cluster ready but no bootstrapStatus - check BootstrapRegion
+                            pass  # Fall through to BootstrapRegion check
+                        elif cluster_ready and pivot_done is None:
+                            # Cluster ready, bootstrapStatus exists but no pivotDone field
+                            pass  # Fall through to BootstrapRegion check
+
+                except Exception as e:
+                    self.log.progress(f"Management cluster check: {e}")
+
+            # Check Kind cluster's BootstrapRegion
             try:
                 output = run_command_output(
                     ["kubectl", "--kubeconfig", kubeconfig, "get", "bootstrapregion", "-o", "json"],
@@ -1005,18 +1016,53 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
 
                 region = data["items"][0]
                 status = region.get("status", {})
-                pivot_done = status.get("pivotDone", False)
-                deploy_status = status.get("deployStatus", "Unknown")
 
-                # Check multiple conditions for robust pivot verification
-                if pivot_done:
-                    # Verify deployStatus is in a good state
-                    good_statuses = ["DEPLOYED", "READY", "Complete"]
-                    if deploy_status in good_statuses or pivot_done:
-                        return True, f"Pivot completed (deployStatus={deploy_status})"
-                    return False, f"Pivot done but deployStatus={deploy_status}"
+                # Check for pivotDone field (older MCC versions)
+                pivot_done = status.get("pivotDone", None)
+                deploy_status = status.get("deployStatus", None)
+                region_ready = status.get("ready", False)
 
-                return False, f"deployStatus={deploy_status}, pivotDone={pivot_done}"
+                # If pivotDone exists and is True
+                if pivot_done is True:
+                    return True, f"Pivot completed (pivotDone=True, deployStatus={deploy_status})"
+
+                # For newer MCC versions: if BootstrapRegion is ready AND
+                # management cluster is accessible and ready, consider pivot complete
+                if region_ready and pivot_done is None and deploy_status is None:
+                    # Check if management cluster is actually accessible
+                    if mgmt_kubeconfig and mgmt_kubeconfig.exists():
+                        try:
+                            mgmt_output = run_command_output(
+                                ["kubectl", "--kubeconfig", str(mgmt_kubeconfig),
+                                 "get", "cluster", "-o", "jsonpath={.items[0].status.providerStatus.ready}"],
+                                timeout=30,
+                            )
+                            if mgmt_output.strip() == "true":
+                                return True, "Pivot completed (cluster ready, BootstrapRegion ready)"
+                        except Exception as e:
+                            # Log the error for debugging
+                            pass
+                    else:
+                        # Try to find kubeconfig again (it may have been created)
+                        for kc in possible_kubeconfigs:
+                            if kc.exists():
+                                try:
+                                    mgmt_output = run_command_output(
+                                        ["kubectl", "--kubeconfig", str(kc),
+                                         "get", "cluster", "-o", "jsonpath={.items[0].status.providerStatus.ready}"],
+                                        timeout=30,
+                                    )
+                                    if mgmt_output.strip() == "true":
+                                        return True, "Pivot completed (cluster ready, BootstrapRegion ready)"
+                                except Exception:
+                                    pass
+
+                # Still waiting
+                if pivot_done is False:
+                    return False, f"deployStatus={deploy_status}, pivotDone={pivot_done}"
+
+                return False, f"BootstrapRegion ready={region_ready}, waiting for pivot indicators"
+
             except Exception as e:
                 return False, str(e)
 
