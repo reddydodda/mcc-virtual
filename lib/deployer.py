@@ -1165,43 +1165,34 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
             if not self.state.get_version("mosk_release"):
                 self._detect_mosk_release(mgmt_kubeconfig)
 
-            self.templates.update_templates_with_config()
-
             mosk_dir = base_dir / "mosk"
 
-            # Generate MOSK templates if methods exist and templates don't already exist
-            # This supports both fresh deployment and resume scenarios
-            bmh_dir = mosk_dir / "03-bmh"
-            machine_dir = mosk_dir / "08-machine"
+            # Generate MOSK templates from Jinja2 templates
+            # This creates all manifests dynamically based on config
+            self.log.progress("Rendering MOSK templates from Jinja2")
+            self.templates.render_mosk_templates(str(mosk_dir))
 
-            if hasattr(self.templates, 'generate_all_mosk_bmh'):
-                if not bmh_dir.exists() or not list(bmh_dir.glob("*.yaml")):
-                    self.templates.generate_all_mosk_bmh(str(mosk_dir), namespace)
-                else:
-                    self.log.progress("MOSK BMH templates already exist, skipping generation")
-
-            if hasattr(self.templates, 'generate_all_mosk_machines'):
-                if not machine_dir.exists() or not list(machine_dir.glob("*.yaml")):
-                    self.templates.generate_all_mosk_machines(str(mosk_dir), namespace)
-                else:
-                    self.log.progress("MOSK machine templates already exist, skipping generation")
-
-            # Note: MiraCeph is applied AFTER MOSK cluster is ready (see below)
-            # This replaces deprecated KaaSCephCluster for MOSK 25.2+
-
+            # Template files to apply (in order)
+            # Note: MiraCeph and OSDPL are applied AFTER MOSK cluster is ready
             templates = [
                 "mosk/01-namespace.yaml",
                 "mosk/02-metallbconfig.yaml",
-                "mosk/03-bmh/01-bmh-master.yaml",
-                "mosk/03-bmh/02-bmh-cmp-hc.yaml",
+                "mosk/03-bmh/01-bmh-control.yaml",
+                "mosk/03-bmh/02-bmh-compute.yaml",
                 "mosk/04-cluster.yaml",
                 "mosk/05-bmhp-ctl.yaml",
                 "mosk/05-bmhp-cmp.yaml",
                 "mosk/06-l2template.yaml",
                 "mosk/07-subnet.yaml",
-                "mosk/08-machine/01-machine-ctl.yaml",
-                "mosk/08-machine/02-machine-cmp.yaml",
+                "mosk/08-machines/01-machines-control.yaml",
+                "mosk/08-machines/02-machines-compute.yaml",
             ]
+
+            # Add storage templates if not hyperconverged
+            if not self.config.is_hyperconverged:
+                templates.insert(4, "mosk/03-bmh/03-bmh-storage.yaml")
+                templates.insert(8, "mosk/05-bmhp-storage.yaml")
+                templates.append("mosk/08-machines/03-machines-storage.yaml")
 
             self._apply_template(base_dir / "mosk/01-namespace.yaml", mgmt_kubeconfig)
 

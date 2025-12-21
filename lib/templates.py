@@ -383,29 +383,30 @@ class TemplateGenerator:
         rendered = {}
 
         # Base MOSK templates (always rendered)
+        # Output paths are designed to match deployer expectations
         mosk_templates = [
-            ("mosk/namespace.yaml.j2", "01-namespace/namespace.yaml"),
-            ("mosk/cluster.yaml.j2", "02-cluster/cluster.yaml"),
+            ("mosk/namespace.yaml.j2", "01-namespace.yaml"),
+            ("mosk/metallbconfig.yaml.j2", "02-metallbconfig.yaml"),
             ("mosk/bmh-control.yaml.j2", "03-bmh/01-bmh-control.yaml"),
             ("mosk/bmh-compute.yaml.j2", "03-bmh/02-bmh-compute.yaml"),
-            ("mosk/l2template.yaml.j2", "04-network/01-l2template.yaml"),
-            ("mosk/subnet.yaml.j2", "04-network/02-subnet.yaml"),
-            ("mosk/metallbconfig.yaml.j2", "04-network/03-metallbconfig.yaml"),
-            ("mosk/bmhp-ctl.yaml.j2", "05-profiles/01-bmhp-ctl.yaml"),
-            ("mosk/bmhp-cmp.yaml.j2", "05-profiles/02-bmhp-cmp.yaml"),
-            ("mosk/machines-control.yaml.j2", "06-machines/01-machines-control.yaml"),
-            ("mosk/machines-compute.yaml.j2", "06-machines/02-machines-compute.yaml"),
-            ("mosk/miraceph.yaml.j2", "07-ceph/miraceph.yaml"),
-            ("mosk/osdpl-secret.yaml.j2", "08-openstack/01-osdpl-secret.yaml"),
-            ("mosk/osdpl.yaml.j2", "08-openstack/02-osdpl.yaml"),
+            ("mosk/cluster.yaml.j2", "04-cluster.yaml"),
+            ("mosk/bmhp-ctl.yaml.j2", "05-bmhp-ctl.yaml"),
+            ("mosk/bmhp-cmp.yaml.j2", "05-bmhp-cmp.yaml"),
+            ("mosk/l2template.yaml.j2", "06-l2template.yaml"),
+            ("mosk/subnet.yaml.j2", "07-subnet.yaml"),
+            ("mosk/machines-control.yaml.j2", "08-machines/01-machines-control.yaml"),
+            ("mosk/machines-compute.yaml.j2", "08-machines/02-machines-compute.yaml"),
+            # OSDPL templates (applied after MOSK cluster is ready)
+            ("mosk/osdpl-secret.yaml.j2", "10-osdpl/osdpl-secret.yaml"),
+            ("mosk/osdpl.yaml.j2", "10-osdpl/osdpl.yaml"),
         ]
 
         # Add storage node templates only in dedicated mode
         if not self.config.is_hyperconverged:
             mosk_templates.extend([
                 ("mosk/bmh-storage.yaml.j2", "03-bmh/03-bmh-storage.yaml"),
-                ("mosk/bmhp-storage.yaml.j2", "05-profiles/03-bmhp-storage.yaml"),
-                ("mosk/machines-storage.yaml.j2", "06-machines/03-machines-storage.yaml"),
+                ("mosk/bmhp-storage.yaml.j2", "05-bmhp-storage.yaml"),
+                ("mosk/machines-storage.yaml.j2", "08-machines/03-machines-storage.yaml"),
             ])
             self.log.progress("Including dedicated storage node templates")
 
