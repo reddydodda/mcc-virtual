@@ -97,6 +97,28 @@ class TemplateGenerator:
 
         return self._certs
 
+    def _generate_management_ips(self) -> List[str]:
+        """Generate management IPs for MOSK nodes based on LCM range."""
+        start = self.config.get_raw("network.mosk.lcm_range_start", "192.168.123.10")
+        # Parse the starting IP and generate IPs for control + compute nodes
+        parts = start.split('.')
+        base = '.'.join(parts[:3])
+        start_octet = int(parts[3])
+
+        # Get total node count
+        control_count = self.config.mosk_control_topology.count
+        compute_count = self.config.mosk_compute_topology.count
+        total_nodes = control_count + compute_count
+
+        return [f"{base}.{start_octet + i}" for i in range(total_nodes)]
+
+    def _get_network_prefix(self, config_key: str, default: str) -> int:
+        """Extract network prefix from CIDR notation."""
+        cidr = self.config.get_raw(config_key, default)
+        if '/' in cidr:
+            return int(cidr.split('/')[1])
+        return 24  # Default prefix
+
     def build_mcc_context(self) -> Dict[str, Any]:
         """
         Build template context for MCC templates.
@@ -263,6 +285,12 @@ class TemplateGenerator:
 
             # DNS
             "dns_servers": self.config.get_raw("network.dns_servers", ["8.8.8.8", "8.8.4.4"]),
+
+            # L2Template specific - management network IPs for MOSK nodes
+            "mosk_management_ips": self._generate_management_ips(),
+            "mosk_management_prefix": self._get_network_prefix("network.mosk.lcm_cidr", "192.168.123.0/24"),
+            "external_mtu": self.config.get_raw("network.mosk.external_mtu", 1500),
+            "provider_mtu": self.config.get_raw("network.mosk.provider_mtu", 1500),
 
             # Ceph configuration
             "ceph_public_network": self.config.get_raw("storage.ceph.public_network", "192.168.125.0/24"),
