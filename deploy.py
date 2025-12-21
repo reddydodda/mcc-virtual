@@ -396,10 +396,14 @@ def cmd_mosk(args: argparse.Namespace) -> int:
         # Check MCC is ready
         print("\n[1/3] Checking MCC cluster status...")
         if not deployer.check_mcc_ready():
-            print("ERROR: MCC cluster is not ready. Please deploy MCC first.")
-            print("Run: deploy.py --host <host> mcc")
-            return 1
-        print("MCC cluster is ready!")
+            if not getattr(args, 'force', False):
+                print("ERROR: MCC cluster is not ready. Please deploy MCC first.")
+                print("Run: deploy.py --host <host> mcc")
+                print("Or use --force to skip this check")
+                return 1
+            print("WARNING: MCC cluster is not ready, but --force specified. Proceeding...")
+        else:
+            print("MCC cluster is ready!")
 
         # Deploy MOSK
         print("\n[2/3] Deploying MOSK cluster...")
@@ -591,7 +595,12 @@ def main() -> int:
     subparsers.add_parser("mcc", help="Deploy MCC cluster and wait until ready")
 
     # mosk command - deploy MOSK (requires MCC ready)
-    subparsers.add_parser("mosk", help="Deploy MOSK cluster (requires MCC to be ready)")
+    mosk_parser = subparsers.add_parser("mosk", help="Deploy MOSK cluster (requires MCC to be ready)")
+    mosk_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Skip MCC ready check and proceed with MOSK deployment",
+    )
 
     # all command - complete deployment
     all_parser = subparsers.add_parser("all", help="Run complete deployment - bootstrap, MCC, and MOSK")
