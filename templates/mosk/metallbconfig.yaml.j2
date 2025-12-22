@@ -6,20 +6,33 @@ kind: MetalLBConfig
 metadata:
   name: {{ mosk_namespace }}-metallb
   namespace: {{ mosk_namespace }}
+  labels:
+    kaas.mirantis.com/provider: baremetal
+    cluster.sigs.k8s.io/cluster-name: {{ mosk_namespace }}
 spec:
   ipAddressPools:
     - name: openstack-external
-      protocol: layer2
-      addresses:
-        - {{ mosk_metallb_range_start }}-{{ mosk_metallb_range_end }}
-      autoAssign: true
+      spec:
+        addresses:
+          - {{ mosk_metallb_range_start }}-{{ mosk_metallb_range_end }}
+        autoAssign: true
+        avoidBuggyIPs: false
     - name: openstack-internal
-      protocol: layer2
-      addresses:
-        - {{ mosk_metallb_internal_start }}-{{ mosk_metallb_internal_end }}
-      autoAssign: false
+      spec:
+        addresses:
+          - {{ mosk_metallb_internal_start }}-{{ mosk_metallb_internal_end }}
+        autoAssign: false
+        avoidBuggyIPs: false
   l2Advertisements:
-    - name: openstack-l2
-      ipAddressPools:
-        - openstack-external
-        - openstack-internal
+    - name: openstack-external
+      spec:
+        interfaces:
+          - k8s-lcm
+        ipAddressPools:
+          - openstack-external
+    - name: openstack-internal
+      spec:
+        interfaces:
+          - k8s-lcm
+        ipAddressPools:
+          - openstack-internal

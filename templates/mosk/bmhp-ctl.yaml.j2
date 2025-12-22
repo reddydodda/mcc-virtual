@@ -9,39 +9,50 @@ metadata:
 spec:
   devices:
     - device:
-        byName: /dev/vda
+        minSize: 60Gi
+        workBy: by_id,by_wwn,by_path,by_name
+        wipeDevice:
+          eraseMetadata:
+            enabled: true
       partitions:
         - name: bios_grub
-          size: 4 MiB
+          size: 4Mi
           partflags:
             - bios_grub
         - name: uefi
-          size: 200 MiB
+          size: 200Mi
           partflags:
             - esp
-        - name: boot
-          size: 1 GiB
-        - name: root
+        - name: config-2
+          size: 64Mi
+        - name: lvm_root_part
           size: 0
-      grubConfig:
-        cmdlineOpts: console=tty0 console=ttyS0,115200n8
   fileSystems:
+    - fileSystem: vfat
+      partition: config-2
     - fileSystem: vfat
       partition: uefi
       mountPoint: /boot/efi
     - fileSystem: ext4
-      partition: boot
-      mountPoint: /boot
-    - fileSystem: ext4
-      partition: root
+      logicalVolume: root
       mountPoint: /
+  logicalVolumes:
+    - name: root
+      size: 0
+      vg: lvm_root
+  volumeGroups:
+    - name: lvm_root
+      devices:
+        - partition: lvm_root_part
   grubConfig:
-    cmdlineOpts: console=tty0 console=ttyS0,115200n8
+    defaultGrubOptions:
+      - GRUB_DISABLE_RECOVERY="true"
+      - GRUB_PRELOAD_MODULES=lvm
+      - GRUB_TIMEOUT=20
+      - GRUB_CMDLINE_LINUX="console=tty0 console=ttyS0,115200n8"
   preDeployScript: |
-    #!/bin/bash
-    set -ex
-    echo "Pre-deploy script for MOSK control node"
+    #!/bin/bash -ex
+    echo $(date) 'pre_deploy_script done' >> /root/pre_deploy_done
   postDeployScript: |
-    #!/bin/bash
-    set -ex
-    echo "Post-deploy script for MOSK control node"
+    #!/bin/bash -ex
+    echo $(date) 'post_deploy_script done' >> /root/post_deploy_done

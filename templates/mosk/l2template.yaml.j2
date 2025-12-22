@@ -11,10 +11,10 @@ metadata:
     cluster.sigs.k8s.io/cluster-name: {{ mosk_namespace }}
 spec:
   autoIfMappingPrio:
-    - type: l2templatemapping
-    - type: byhwaddr
-    - type: byname
-    - type: byipam
+    - provision
+    - eno
+    - ens
+    - enp
   npTemplate: |-
 {% raw %}
     version: 2
