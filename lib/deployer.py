@@ -1127,6 +1127,18 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
             if not _validate_namespace(namespace):
                 raise ValueError(f"Invalid namespace format: {namespace}")
 
+            # Detect MOSK release version (needed for template context)
+            if not self.state.get_version("mosk_release"):
+                self._detect_mosk_release(mgmt_kubeconfig)
+
+            mosk_dir = base_dir / "mosk"
+
+            # Always generate MOSK templates from Jinja2 templates
+            # This ensures templates are up-to-date with current config
+            self.log.progress("Rendering MOSK templates from Jinja2")
+            self.templates.update_templates_with_config()
+            self.templates.render_mosk_templates(str(mosk_dir))
+
             # Fast-track: Check if MOSK cluster is already ready (resume scenario)
             if self._is_mosk_cluster_ready(mgmt_kubeconfig, namespace):
                 self.log.progress("MOSK cluster already ready - checking for kubeconfig")
@@ -1141,7 +1153,6 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
 
                 # Still need to apply MiraCeph if not done yet (resume scenario)
                 # MiraCeph is applied on MOSK cluster, not management cluster
-                mosk_dir = base_dir / "mosk"
                 miraceph_step = "apply_09-miraceph"
                 mosk_kubeconfig = self.state.get_kubeconfig("mosk")
                 if not mosk_kubeconfig:
@@ -1149,10 +1160,6 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
 
                 if not self.state.is_step_completed(miraceph_step):
                     self.log.progress("Applying MiraCeph on MOSK cluster (resume scenario)")
-                    # Ensure MOSK release is detected for template context
-                    if not self.state.get_version("mosk_release"):
-                        self._detect_mosk_release(mgmt_kubeconfig)
-                    self.templates.update_templates_with_config()
                     miraceph_path = self.templates.generate_miraceph_manifest(str(mosk_dir))
                     self._apply_template(Path(miraceph_path), mosk_kubeconfig)
                 else:
@@ -1161,16 +1168,6 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
                 self.state.set_phase(DeploymentPhase.MOSK_READY)
                 self.log.phase_complete("mosk_deployment")
                 return
-
-            if not self.state.get_version("mosk_release"):
-                self._detect_mosk_release(mgmt_kubeconfig)
-
-            mosk_dir = base_dir / "mosk"
-
-            # Generate MOSK templates from Jinja2 templates
-            # This creates all manifests dynamically based on config
-            self.log.progress("Rendering MOSK templates from Jinja2")
-            self.templates.render_mosk_templates(str(mosk_dir))
 
             # Template files to apply (in order)
             # Note: MiraCeph and OSDPL are applied AFTER MOSK cluster is ready
