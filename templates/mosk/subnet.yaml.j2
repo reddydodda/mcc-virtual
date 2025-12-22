@@ -45,3 +45,17 @@ spec:
   cidr: {{ mosk_storage_cidr }}
   includeRanges:
     - {{ mosk_storage_range_start }}-{{ mosk_storage_range_end }}
+---
+apiVersion: ipam.mirantis.com/v1alpha1
+kind: Subnet
+metadata:
+  name: mosk-k8s-api-lb
+  namespace: {{ mosk_namespace }}
+  labels:
+    cluster.sigs.k8s.io/cluster-name: {{ mosk_namespace }}
+    ipam/SVC-LBhost: "presents"
+    kaas.mirantis.com/provider: baremetal
+    kaas.mirantis.com/region: region-one
+spec:
+  cidr: {{ mosk_api_lb_cidr | default('192.168.123.17/32') }}
+  useWholeCidr: true

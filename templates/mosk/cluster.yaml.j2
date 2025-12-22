@@ -23,6 +23,12 @@ spec:
       kind: BaremetalClusterProviderSpec
       release: {{ mosk_release }}
       dedicatedControlPlane: {{ dedicated_control_plane | lower }}
+      dedicatedMetallbPools: true
+      nodeCidr: {{ mosk_lcm_cidr | default('192.168.123.0/24') }}
+      dnsNameservers:
+{% for dns in dns_servers %}
+        - {{ dns }}
+{% endfor %}
       helmReleases:
         - name: metallb
           values:
