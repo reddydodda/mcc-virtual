@@ -18,8 +18,8 @@ versions:
   mcc_version: "2.30.0"
   # Minimum required versions (auto-detected if not specified)
   mcc_minimum: "2.30.0"
-  mosk_minimum: "25.2"
-  openstack: "antelope"  # antelope, bobcat, caracal
+  mosk_minimum: "mosk-21-0-0-25-2"
+  openstack: "antelope"  # antelope, caracal
 
 # =============================================================================
 # NETWORK CONFIGURATION
@@ -237,13 +237,13 @@ bootstrap:
 # TIMEOUTS AND RETRIES
 # =============================================================================
 timeouts:
-  # Resource provisioning timeouts (seconds)
-  bmh_available: 3600     # BMH to become available
-  bmh_provisioned: 7200   # BMH to finish provisioning
-  machine_ready: 3600     # Machine to become Ready
-  cluster_ready: 1800     # Cluster to become Ready
-  ceph_healthy: 3600      # Ceph cluster to become healthy
-  osdpl_applied: 7200     # OpenStack deployment to complete
+  # Resource provisioning timeouts (seconds) - 5x original values
+  bmh_available: 18000     # BMH to become available (5h)
+  bmh_provisioned: 36000   # BMH to finish provisioning (10h)
+  machine_ready: 18000     # Machine to become Ready (5h)
+  cluster_ready: 9000      # Cluster to become Ready (2.5h)
+  ceph_healthy: 18000      # Ceph cluster to become healthy (5h)
+  osdpl_applied: 36000     # OpenStack deployment to complete (10h)
 
   # Polling interval (seconds)
   poll_interval: 30

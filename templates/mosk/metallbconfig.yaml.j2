@@ -4,35 +4,24 @@
 apiVersion: kaas.mirantis.com/v1alpha1
 kind: MetalLBConfig
 metadata:
-  name: {{ mosk_namespace }}-metallb
+  name: {{ mosk_namespace }}-metallb-config
   namespace: {{ mosk_namespace }}
   labels:
     kaas.mirantis.com/provider: baremetal
+    kaas.mirantis.com/region: region-one
     cluster.sigs.k8s.io/cluster-name: {{ mosk_namespace }}
 spec:
   ipAddressPools:
-    - name: openstack-external
+    - name: services
       spec:
         addresses:
-          - {{ mosk_metallb_range_start }}-{{ mosk_metallb_range_end }}
+          - {{ network.metallb.mosk.pool }}
         autoAssign: true
         avoidBuggyIPs: false
-    - name: openstack-internal
-      spec:
-        addresses:
-          - {{ mosk_metallb_internal_start }}-{{ mosk_metallb_internal_end }}
-        autoAssign: false
-        avoidBuggyIPs: false
   l2Advertisements:
-    - name: openstack-external
+    - name: services
       spec:
+        ipAddressPools:
+          - services
         interfaces:
           - k8s-lcm
-        ipAddressPools:
-          - openstack-external
-    - name: openstack-internal
-      spec:
-        interfaces:
-          - k8s-lcm
-        ipAddressPools:
-          - openstack-internal
