@@ -60,22 +60,30 @@ class TemplateGenerator:
     def kvm_node_ip(self) -> str:
         """Get KVM node IP (vBMC address).
 
-        This is the IP where vBMC is listening, which should be the br-pxe gateway
-        since that's accessible from both the host and the Kind cluster network.
+        This is the IP where vBMC is listening - typically the host's external IP,
+        not the bridge gateway.
         """
         if self._kvm_node_ip is None:
-            # Priority: 1. State, 2. br-pxe gateway from config, 3. hosts.txt fallback
+            # Priority: 1. State, 2. hosts.txt, 3. detect from hostname
             self._kvm_node_ip = self.state.get_resource("kvm_node_ip")
             if not self._kvm_node_ip:
-                # Use br-pxe gateway - this is where vBMC listens
-                pxe_bridge = self.config.bridges.get("pxe")
-                if pxe_bridge:
-                    self._kvm_node_ip = pxe_bridge.gateway
-            if not self._kvm_node_ip:
-                # Fallback to hosts.txt for backwards compatibility
+                # Try hosts.txt first - contains the external IP
                 hosts_file = Path(self.config.base_dir) / "hosts.txt"
                 if hosts_file.exists():
                     self._kvm_node_ip = hosts_file.read_text().strip()
+            if not self._kvm_node_ip:
+                # Try to detect from hostname
+                import socket
+                try:
+                    hostname = socket.gethostname()
+                    self._kvm_node_ip = socket.gethostbyname(hostname)
+                except socket.error:
+                    pass
+            if not self._kvm_node_ip:
+                # Last resort: use br-pxe gateway (may not be correct for vBMC)
+                pxe_bridge = self.config.bridges.get("pxe")
+                if pxe_bridge:
+                    self._kvm_node_ip = pxe_bridge.gateway
         return self._kvm_node_ip
 
     @property

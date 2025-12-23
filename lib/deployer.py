@@ -1127,9 +1127,9 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
             if not _validate_namespace(namespace):
                 raise ValueError(f"Invalid namespace format: {namespace}")
 
-            # Detect MOSK release version (needed for template context)
-            if not self.state.get_version("mosk_release"):
-                self._detect_mosk_release(mgmt_kubeconfig)
+            # Always detect/update MOSK release version (needed for template context)
+            # Re-detect every time to pick up config changes
+            self._detect_mosk_release(mgmt_kubeconfig)
 
             mosk_dir = base_dir / "mosk"
 
@@ -1430,8 +1430,16 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
         if not mosk_releases:
             raise ValueError("Could not detect any MOSK releases in the cluster")
 
-        # Check if a specific MOSK version is configured
+        # Check if a specific MOSK version/release is configured
+        # Priority: mosk_version > mosk_minimum (if it's a full release name)
         target_version = self.config.mosk_version if hasattr(self.config, 'mosk_version') else None
+
+        # Also check mosk_minimum - if it's a full release name (starts with "mosk-"), use as target
+        if not target_version:
+            min_version = self.config.mosk_minimum_version
+            if min_version and min_version.startswith("mosk-"):
+                target_version = min_version
+                self.log.progress(f"Using mosk_minimum as target release: {target_version}")
 
         if target_version:
             # Find release matching the target version
