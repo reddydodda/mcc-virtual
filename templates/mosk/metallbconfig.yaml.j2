@@ -15,7 +15,7 @@ spec:
     - name: services
       spec:
         addresses:
-          - {{ network.metallb.mosk.pool }}
+          - {{ mosk_metallb_pool }}
         autoAssign: true
         avoidBuggyIPs: false
   l2Advertisements:

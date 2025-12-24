@@ -294,8 +294,7 @@ class TemplateGenerator:
             "mosk_fip_cidr": self.config.get_raw("network.bridges.floating.cidr", "192.168.125.0/24"),
             "mosk_fip_gateway": self.config.get_raw("network.bridges.floating.gateway", "192.168.125.1"),
             # MetalLB
-            "mosk_metallb_range_start": self.config.get_raw("network.mosk.metallb_range_start", "192.168.123.121"),
-            "mosk_metallb_range_end": self.config.get_raw("network.mosk.metallb_range_end", "192.168.123.149"),
+            "mosk_metallb_pool": self.config.get_raw("network.metallb.mosk.pool", "192.168.123.121-192.168.123.149"),
             # API endpoint
             "mosk_api_lb_cidr": self.config.get_raw("network.api_endpoints.mosk", "192.168.123.100") + "/32",
 
