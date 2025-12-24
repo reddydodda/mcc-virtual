@@ -9,6 +9,7 @@ metadata:
   namespace: {{ mosk_namespace }}
   labels:
     cluster.sigs.k8s.io/cluster-name: {{ mosk_namespace }}
+    cluster.sigs.k8s.io/control-plane: "true"
     kaas.mirantis.com/provider: baremetal
     kaas.mirantis.com/region: region-one
 spec:

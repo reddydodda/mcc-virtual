@@ -30,5 +30,6 @@ spec:
     address: {{ kvm_node_ip }}:{{ node.vbmc_port }}
     bmhCredentialsName: bm-mosk-ctl-{{ '%02d' | format(node.index) }}-credentials
   bootMACAddress: {{ node.mac_address }}
+  bootMode: UEFI
   online: true
 {% endfor %}
