@@ -39,8 +39,4 @@ spec:
       hostSelector:
         matchLabels:
           kaas.mirantis.com/baremetalhost-id: hw-mosk-cmp-{{ '%02d' | format(node.index) }}
-          hostlabel.bm.kaas.mirantis.com/worker: 'true'
-{% if is_hyperconverged %}
-          hostlabel.bm.kaas.mirantis.com/storage: 'true'
-{% endif %}
 {% endfor %}

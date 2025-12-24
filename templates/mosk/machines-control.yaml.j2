@@ -37,5 +37,4 @@ spec:
       hostSelector:
         matchLabels:
           kaas.mirantis.com/baremetalhost-id: hw-mosk-ctl-{{ '%02d' | format(node.index) }}
-          hostlabel.bm.kaas.mirantis.com/controlplane: 'true'
 {% endfor %}

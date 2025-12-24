@@ -32,6 +32,5 @@ spec:
       hostSelector:
         matchLabels:
           kaas.mirantis.com/baremetalhost-id: hw-mosk-storage-{{ '%02d' | format(node.index) }}
-          hostlabel.bm.kaas.mirantis.com/storage: 'true'
 {% endfor %}
 {% endif %}
