@@ -112,7 +112,7 @@ topology:
   # Storage deployment mode:
   #   - hyperconverged: Ceph runs on compute nodes (default, fewer VMs, less resources)
   #   - dedicated: Separate storage nodes for Ceph (better I/O isolation, more VMs)
-  storage_mode: hyperconverged
+  storage_mode: dedicated
 
   # MCC Management Cluster (fixed at 3)
   mcc:
@@ -129,8 +129,8 @@ topology:
   mosk_control:
     count: 3
     resources:
-      ram_mb: 32768
-      vcpus: 8
+      ram_mb: 49152
+      vcpus: 16
       disk_root_gb: 100
       disk_local_gb: 50
     mac_prefix: "52:54:00:c5:92"
@@ -140,7 +140,7 @@ topology:
   # In hyperconverged mode: includes Ceph OSD disks
   # In dedicated mode: pure compute, no Ceph disks
   mosk_compute:
-    count: 3
+    count: 2
     resources:
       ram_mb: 49152
       vcpus: 12
@@ -156,8 +156,8 @@ topology:
   mosk_storage:
     count: 3
     resources:
-      ram_mb: 16384
-      vcpus: 4
+      ram_mb: 32768
+      vcpus: 8
       disk_root_gb: 50
       disk_local_gb: 20
       disk_ceph_gb: 100

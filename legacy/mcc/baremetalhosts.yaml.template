@@ -63,7 +63,7 @@ spec:
     # The IP address of the BMC endpoint for the first server.
     # Verify that you can access this address from the host
     # where you run the bootstrap script (seed node).
-    address: SET_KVM_ADDRESS:6231
+    address: 192.168.122.1:6231
     credentialsName: ''
 ---
 apiVersion: metal3.io/v1alpha1
@@ -86,7 +86,7 @@ spec:
     # The IP address of the BMC endpoint for the second server.
     # Verify that you can access this address from the host
     # where you run the bootstrap script (seed node).
-    address: SET_KVM_ADDRESS:6232
+    address: 192.168.122.1:6232
     credentialsName: ''
 ---
 apiVersion: metal3.io/v1alpha1
@@ -109,5 +109,5 @@ spec:
     # The IP address of the BMC endpoint for the third server.
     # Verify that you can access this address from the host
     # where you run the bootstrap script (seed node).
-    address: SET_KVM_ADDRESS:6233
+    address: 192.168.122.1:6233
     credentialsName: ''

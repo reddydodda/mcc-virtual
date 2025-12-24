@@ -1354,8 +1354,10 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
                 self.log.phase_complete("openstack_deployment")
                 return
 
-            self.log.progress("Waiting for Ceph cluster to be healthy")
-            self._wait_for_ceph_healthy(mosk_kubeconfig)
+            # Wait for MiraCeph to be Ready before deploying OpenStack
+            # This ensures Ceph cluster is fully configured
+            self.log.progress("Waiting for MiraCeph to be Ready")
+            self._wait_for_miraceph_ready(mosk_kubeconfig)
 
             osdpl_dir = base_dir / "mosk" / "10-osdpl"
             self._apply_template(osdpl_dir / "osdpl-secret.yaml", mosk_kubeconfig)
@@ -1730,6 +1732,64 @@ export KAAS_BM_PXE_BRIDGE="{self.config.bootstrap_pxe_bridge}"
         )
 
         self.log.resource_ready("lcmmachines", "")
+
+    def _wait_for_miraceph_ready(self, kubeconfig: str, timeout: int = 3600) -> None:
+        """Wait for MiraCeph to be Ready.
+
+        Checks miraceph resource in ceph-lcm-mirantis namespace for PHASE=Ready.
+        This indicates the Ceph cluster is fully configured and ready for use.
+        """
+        self.log.progress("Waiting for MiraCeph to be Ready")
+
+        def check() -> Tuple[bool, str]:
+            try:
+                output = run_command_output(
+                    ["kubectl", "--kubeconfig", kubeconfig, "-n", "ceph-lcm-mirantis",
+                     "get", "miraceph", "-o", "json"],
+                    timeout=60,
+                )
+                data = json.loads(output)
+                items = data.get("items", [data]) if "items" in data else [data]
+
+                if not items:
+                    return False, "No MiraCeph resources found"
+
+                for item in items:
+                    name = item.get("metadata", {}).get("name", "unknown")
+                    status = item.get("status", {})
+                    phase = status.get("phase", "Unknown")
+                    validation = status.get("validation", "Unknown")
+                    message = status.get("message", "")
+
+                    status_str = f"{name}: PHASE={phase}, VALIDATION={validation}"
+                    if message:
+                        status_str += f", MSG={message[:50]}"
+
+                    if phase == "Ready":
+                        return True, status_str
+                    else:
+                        return False, status_str
+
+                return False, "No MiraCeph status found"
+
+            except Exception as e:
+                error_str = str(e)
+                # If the CRD doesn't exist yet, keep waiting
+                if "the server doesn't have a resource type" in error_str:
+                    return False, "MiraCeph CRD not yet available"
+                if "No resources found" in error_str:
+                    return False, "MiraCeph resource not yet created"
+                return False, f"Error: {error_str}"
+
+        wait_for_condition(
+            check,
+            "MiraCeph PHASE=Ready",
+            timeout=timeout,
+            interval=self.config.poll_interval,
+            progress_fn=lambda s: self.log.progress(f"MiraCeph status: {s}"),
+        )
+
+        self.log.resource_ready("miraceph", "ceph-lcm-mirantis")
 
     def _wait_for_ceph_healthy(self, kubeconfig: str, timeout: int = 3600) -> None:
         """Wait for Ceph cluster to be healthy.
