@@ -276,33 +276,35 @@ class TemplateGenerator:
             # Network configuration
             "mosk_pod_cidr": self.config.get_raw("network.mosk.pod_cidr", "10.245.0.0/16"),
             "mosk_service_cidr": self.config.get_raw("network.mosk.service_cidr", "10.97.0.0/16"),
-            "mosk_lcm_cidr": self.config.get_raw("network.mosk.lcm_cidr", "192.168.123.0/24"),
-            "mosk_lcm_gateway": self.config.get_raw("network.mosk.lcm_gateway", "192.168.123.1"),
-            "mosk_lcm_range_start": self.config.get_raw("network.mosk.lcm_range_start", "192.168.123.10"),
-            "mosk_lcm_range_end": self.config.get_raw("network.mosk.lcm_range_end", "192.168.123.100"),
-            "mosk_pxe_cidr": self.config.get_raw("network.mosk.pxe_cidr", "192.168.124.0/24"),
-            "mosk_pxe_range_start": self.config.get_raw("network.mosk.pxe_range_start", "192.168.124.10"),
-            "mosk_pxe_range_end": self.config.get_raw("network.mosk.pxe_range_end", "192.168.124.100"),
-            "mosk_storage_cidr": self.config.get_raw("network.mosk.storage_cidr", "192.168.125.0/24"),
-            "mosk_storage_range_start": self.config.get_raw("network.mosk.storage_range_start", "192.168.125.10"),
-            "mosk_storage_range_end": self.config.get_raw("network.mosk.storage_range_end", "192.168.125.100"),
-            "mosk_metallb_range_start": self.config.get_raw("network.mosk.metallb_range_start", "192.168.123.200"),
-            "mosk_metallb_range_end": self.config.get_raw("network.mosk.metallb_range_end", "192.168.123.220"),
-            "mosk_metallb_internal_start": self.config.get_raw("network.mosk.metallb_internal_start", "192.168.123.230"),
-            "mosk_metallb_internal_end": self.config.get_raw("network.mosk.metallb_internal_end", "192.168.123.240"),
+            # LCM network (br-lcm)
+            "mosk_lcm_cidr": self.config.get_raw("network.bridges.lcm.cidr", "192.168.123.0/24"),
+            "mosk_lcm_gateway": self.config.get_raw("network.bridges.lcm.gateway", "192.168.123.1"),
+            "mosk_lcm_range_start": self.config.get_raw("network.mosk.lcm_range_start", "192.168.123.30"),
+            "mosk_lcm_range_end": self.config.get_raw("network.mosk.lcm_range_end", "192.168.123.99"),
+            # Tenant/others network (br-others) - used for neutron tunnels
+            "mosk_tenant_cidr": self.config.get_raw("network.bridges.tenant.cidr", "192.168.124.0/24"),
+            "mosk_tenant_gateway": self.config.get_raw("network.bridges.tenant.gateway", "192.168.124.1"),
+            "mosk_tenant_range_start": self.config.get_raw("network.mosk.tenant_range_start", "192.168.124.10"),
+            "mosk_tenant_range_end": self.config.get_raw("network.mosk.tenant_range_end", "192.168.124.100"),
+            # PXE network (br-pxe)
+            "mosk_pxe_cidr": self.config.get_raw("network.bridges.pxe.cidr", "192.168.122.0/24"),
+            "mosk_pxe_range_start": self.config.get_raw("network.mosk.pxe_range_start", "192.168.122.40"),
+            "mosk_pxe_range_end": self.config.get_raw("network.mosk.pxe_range_end", "192.168.122.60"),
+            # Floating IP network (br-fip)
+            "mosk_fip_cidr": self.config.get_raw("network.bridges.floating.cidr", "192.168.125.0/24"),
+            "mosk_fip_gateway": self.config.get_raw("network.bridges.floating.gateway", "192.168.125.1"),
+            # MetalLB
+            "mosk_metallb_range_start": self.config.get_raw("network.mosk.metallb_range_start", "192.168.123.121"),
+            "mosk_metallb_range_end": self.config.get_raw("network.mosk.metallb_range_end", "192.168.123.149"),
+            # API endpoint
+            "mosk_api_lb_cidr": self.config.get_raw("network.api_endpoints.mosk", "192.168.123.100") + "/32",
 
             # DNS
             "dns_servers": self.config.get_raw("network.dns_servers", ["8.8.8.8", "8.8.4.4"]),
 
-            # L2Template specific - management network IPs for MOSK nodes
-            "mosk_management_ips": self._generate_management_ips(),
-            "mosk_management_prefix": self._get_network_prefix("network.mosk.lcm_cidr", "192.168.123.0/24"),
-            "external_mtu": self.config.get_raw("network.mosk.external_mtu", 1500),
-            "provider_mtu": self.config.get_raw("network.mosk.provider_mtu", 1500),
-
-            # Ceph configuration
-            "ceph_public_network": self.config.get_raw("storage.ceph.public_network", "192.168.125.0/24"),
-            "ceph_cluster_network": self.config.get_raw("storage.ceph.cluster_network", "192.168.125.0/24"),
+            # Ceph configuration - uses br-lcm network for public/cluster traffic
+            "ceph_public_network": self.config.get_raw("storage.ceph.public_network", "192.168.123.0/24"),
+            "ceph_cluster_network": self.config.get_raw("storage.ceph.cluster_network", "192.168.123.0/24"),
             "ceph_osd_devices": self.config.ceph_osd_devices,
             "ceph_pool_replication_size": self.config.get_raw("storage.ceph.pool_replication_size", 2),
             "ceph_rgw_instances": self.config.get_raw("storage.ceph.rgw_instances", 3),
