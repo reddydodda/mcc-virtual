@@ -26,7 +26,7 @@ spec:
     - scope: namespace
       subnetName: mosk-pxe-subnet
   npTemplate: |
-    version: 2
+    {% raw %}version: 2
     renderer: networkd
     ethernets:
       {{ nic 0 }}:
@@ -71,7 +71,7 @@ spec:
           - {{ ip "k8s-pxe:mosk-pxe-subnet" }}
       br-fip:
         interfaces:
-          - {{ nic 2 }}
+          - {{ nic 2 }}{% endraw %}
 ---
 apiVersion: ipam.mirantis.com/v1alpha1
 kind: L2Template
@@ -97,7 +97,7 @@ spec:
     - scope: namespace
       subnetName: mosk-pxe-subnet
   npTemplate: |
-    version: 2
+    {% raw %}version: 2
     renderer: networkd
     ethernets:
       {{ nic 0 }}:
@@ -142,4 +142,4 @@ spec:
           - {{ ip "k8s-pxe:mosk-pxe-subnet" }}
       br-fip:
         interfaces:
-          - {{ nic 2 }}
+          - {{ nic 2 }}{% endraw %}
